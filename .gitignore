@@ -1,0 +1,8 @@
+/target
+
+# Generated experiment artifacts (reproducible via `cargo run --release`)
+/artifacts
+
+# Transient run logs / pid from the sweep orchestrator
+/sweep.*
+*.tmp
