@@ -15,6 +15,7 @@ pub mod grm;
 pub mod report;
 pub mod socp;
 pub mod solve;
+pub mod support_first;
 
 pub use error::OcsError;
 

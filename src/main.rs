@@ -12,7 +12,7 @@
 use ocs_rs::report::{self, FrontierPoint, ScalingRecord, Verdict, VerdictInputs, markers_for};
 use ocs_rs::socp::{self, Factor, Route};
 use ocs_rs::solve::{self, SolveConfig};
-use ocs_rs::{datagen, feasibility, grm};
+use ocs_rs::{datagen, feasibility, grm, support_first};
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -69,6 +69,16 @@ fn real_main() -> i32 {
         ),
         // Re-derive REPORT.md from existing artifacts/ without re-solving.
         "report" => cmd_report(),
+        // Head-to-head: Clarabel vs support-first on identical data.
+        "compare" => {
+            let n = flag_usize(&args, "--n", 2000);
+            cmd_compare(
+                n,
+                flag_usize(&args, "--m", markers_for(n)),
+                flag_u64(&args, "--seed", 20240617),
+                flag_f64(&args, "--k-frac", 0.6),
+            )
+        }
         "-h" | "--help" | "help" => {
             eprintln!(
                 "usage: ocs_rs [correctness|frontier|scale|all] [--n N] [--m M] [--seed S] \
@@ -354,6 +364,84 @@ fn cmd_report() -> Result<(), i32> {
         }
     );
     Ok(())
+}
+
+/// Head-to-head: the conic IPM (Clarabel, Route A) vs the support-first solver
+/// on identical data. Reports per-stage timing, gain agreement, support sizes.
+fn cmd_compare(n: usize, m: usize, seed: u64, k_frac: f64) -> Result<(), i32> {
+    eprintln!("[compare] n={n} m={m} seed={seed}");
+    let (ds, t_datagen) = timed(|| datagen::generate(n, m, seed));
+    let k = k_frac * mean_diag(&ds.z, ds.s);
+
+    // --- Clarabel, Route A (the path the spike validated) ---
+    let (grm, t_grm) = timed(|| grm::Grm::build(&ds.z, ds.s, INITIAL_RIDGE));
+    let (l_res, t_chol) = timed(|| grm.cholesky_lower());
+    let l = l_res.map_err(|e| {
+        eprintln!("[compare] cholesky: {e}");
+        1
+    })?;
+    let (prob, t_assemble) = timed(|| socp::build(Factor::Cholesky(&l), &ds.b, k, ds.s, None));
+    let (clar_res, t_clar) = timed(|| solve::solve(&prob, SolveConfig::default()));
+    let clar = clar_res.map_err(|e| {
+        eprintln!("[compare] clarabel: {e}");
+        1
+    })?;
+    let clar_supp = clar.c.iter().filter(|&&c| c > 1e-6).count();
+    let t_clar_pipeline = t_grm + t_chol + t_assemble + t_clar;
+
+    // --- support-first (no GRM, no Cholesky; matrix-free over Z) ---
+    let (sf, t_sf) =
+        timed(|| support_first::solve(&ds.z, ds.s, INITIAL_RIDGE, &ds.b, k, 4000, 1e-7));
+
+    let gain_match = (sf.gain - clar.gain).abs();
+    let speedup_solve = if t_sf > 0.0 {
+        t_clar / t_sf
+    } else {
+        f64::INFINITY
+    };
+    let speedup_pipe = if t_sf > 0.0 {
+        t_clar_pipeline / t_sf
+    } else {
+        f64::INFINITY
+    };
+
+    // stdout: the comparison.
+    println!("n={n}  m={m}  k={k:.5}  (datagen {t_datagen:.3}s, shared)\n");
+    println!("  stage                 Clarabel(RouteA)    support-first");
+    println!("  GRM build             {t_grm:>10.3}s          —");
+    println!("  Cholesky              {t_chol:>10.3}s          —");
+    println!("  assemble              {t_assemble:>10.3}s          —");
+    println!(
+        "  solve                 {t_clar:>10.3}s   {t_sf:>10.3}s   ({} G·c products)",
+        sf.products
+    );
+    println!("  ----------------------------------------------------------");
+    println!("  total (excl datagen)  {t_clar_pipeline:>10.3}s   {t_sf:>10.3}s");
+    println!(
+        "  gain                  {:>11.6}    {:>11.6}   (Δ={gain_match:.2e})",
+        clar.gain, sf.gain
+    );
+    println!(
+        "  |support|             {clar_supp:>11}    {:>11}",
+        sf.support.len()
+    );
+    println!(
+        "  feasible cᵀGc≤k       {:>11}    {:>11}",
+        clar.is_solved(),
+        sf.quad <= k + 1e-6
+    );
+    println!(
+        "  status                {:>11?}    {:?}",
+        clar.status, sf.status
+    );
+    println!("\n  speedup: solve {speedup_solve:.0}×   |   full pipeline {speedup_pipe:.1}×");
+
+    if gain_match < 1e-6 && sf.status == support_first::SfStatus::Solved {
+        Ok(())
+    } else {
+        eprintln!("[compare] WARNING: gain mismatch {gain_match:.2e} or non-Solved status");
+        Err(1)
+    }
 }
 
 // ----------------------------------------------------------------------------

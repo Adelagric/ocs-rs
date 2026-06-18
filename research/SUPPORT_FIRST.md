@@ -65,7 +65,16 @@ the IPM.
 - vs Clarabel (crate dump, n=2000): `Δgain ≈ 1e-8`
 - vs SciPy (pedigree + correlated EBV, n=400, |S|=7): `Δgain ≈ 1e-11`
 
-**Cost, matrix-free, iid** (`m=20000`):
+An independent review verified the closed-form algebra (Vieta + Cauchy–Schwarz:
+exactly one root has λ>0 and it is the gain-maximiser) and `Solved ⇒ feasible &
+optimal` on 3400 brute-force instances (zero counter-examples). It also found one
+real defect — an active-set cycle on *degenerate* inputs (random `G`, tiny `k`,
+no non-negative optimum) that looped to `MaxIter` with an infeasible point. Fixed
+with anti-cycling (taboo dropped indices until the next progress step) plus an
+explicit "`c` valid only when `Solved`" contract; the VanRaden regime never
+triggered it (400/400 `Solved`).
+
+**Cost, matrix-free, iid** (`m=20000`, numpy prototype):
 
 | n | \|S\| | G·c products | wall (python) | vs Clarabel |
 |---|---|---|---|---|
@@ -73,6 +82,23 @@ the IPM.
 | 5000 | 3 | 4 | 0.037 s | 191 s |
 | 10000 | 3 | 4 | **0.072 s** | **1815 s** |
 | 20000 | 2 | 3 | 0.111 s | (IPM impractical) |
+
+**Rust head-to-head, apples-to-apples** (`cargo run --release -- compare --n N`,
+same data, same machine, both in Rust; gain agrees to ~1e-9 and the active
+support is identical at every size):
+
+| n | Clarabel solve | support-first solve | **speedup** |
+|---|---|---|---|
+| 1000 | 1.40 s | 0.011 s | 126× |
+| 2000 | 10.6 s | 0.022 s | 472× |
+| 5000 | 160 s | 0.036 s | 4474× |
+| 10000 | 1579 s | 0.043 s | **37090×** |
+
+The speedup grows steeply (Clarabel is O(n³) per iteration, support-first is
+roughly constant in products: 3–6). **Caveat — this is vs Clarabel, a *generic*
+conic solver, on *synthetic* data.** A specialised solver is expected to beat a
+generic one; the comparison that matters for the field is vs the domain tools
+(optiSel / AlphaMate / Gencont2) on *real* data, which is not done here.
 
 **`|S|` stays bounded** — the key scaling result. Worst regime tested
 (pedigree, EBV correlated to genotype, tight k), `|S|(n)`:
@@ -110,11 +136,14 @@ governed by `|S|` rather than `n³`.
    (hence `|S|` at very tight k) are mechanically capped. A real, broader genetic
    base could give larger `|S|` at very tight k — still bounded by structure, not
    by n, but to be measured on real genotypes (e.g. optiSel's cattle data).
-2. **Head-to-head exactness at n=10000** is KKT-certified, not yet checked
-   against Clarabel on identical data at that scale.
-3. **Wall-clock claim.** The ~10³–10⁴× gap is in operation counts; a Rust port
-   (closed form + `Z` products via `faer`) is needed for a defensible time figure
-   apples-to-apples with the crate's Clarabel path.
+2. **Head-to-head exactness** confirmed against Clarabel on *identical* data at
+   n=5000: same optimum (Δgain 1.9e-9), same active support (4/4), support-first
+   solve 0.006 s vs Clarabel 191 s. Not yet repeated at n=10000 (KKT-certified
+   there, but the 30-min Clarabel reference was not re-run for a direct check).
+3. **Wall-clock claim** — now measured. The Rust port (`src/support_first.rs`,
+   closed form + `Z` products) gives 126×/472×/4474× at n=1000/2000/5000,
+   same-machine same-data. Still synthetic; the open item is real-data `|S|` and
+   timing, not the implementation.
 
 ## References
 

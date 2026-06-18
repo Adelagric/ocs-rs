@@ -73,6 +73,7 @@ cargo run --release -- correctness        # n=50, dump artifacts, assert feasibi
 cargo run --release -- frontier           # sweep k, assert gain monotone in k -> artifacts/frontier.csv
 cargo run --release -- scale --n 5000 --route a   # one point; prints a CSV row to stdout
 cargo run --release -- report             # rebuild REPORT.md from existing artifacts/ (no re-solving)
+cargo run --release -- compare --n 5000   # Clarabel vs the support-first solver, head-to-head
 ```
 
 Flags: `--n --m --seed --k-frac --route a|b --max-iter --time-limit --max-n`.
@@ -100,6 +101,19 @@ The n=50 solution has been cross-checked two ways independent of this crate's
 own arithmetic: feasibility recomputed in numpy from the dumped CSVs, and the
 optimum re-solved with SciPy SLSQP (a different solver) — both agree to ~1e-9.
 See [`REPORT.md`](REPORT.md).
+
+## Beyond the spike — a faster exact solver
+
+The Clarabel verdict is GO, but the conic IPM pays O(n³) per iteration to
+describe a solution that activates only a handful of candidates. `research/`
+explores **support-first**, an exact column-generation solver that exploits that
+sparsity (closed form per support + matrix-free `Z` products). It is ported to
+`src/support_first.rs` and reaches the *same* optimum as Clarabel (gain Δ ~1e-9,
+same active support) far faster — run `cargo run --release -- compare --n N` to
+see the head-to-head. See [`research/SUPPORT_FIRST.md`](research/SUPPORT_FIRST.md)
+for the derivation, measurements, and open questions (real-data validation,
+state-of-the-art positioning). Still synthetic-only — a lead, not a finished
+result.
 
 ## Constraints honoured
 
