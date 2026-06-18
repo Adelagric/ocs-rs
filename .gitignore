@@ -13,3 +13,7 @@
 # Generated AlphaMate run directories (large coancestry/Nrm matrices, reproducible)
 /alphamate/run_mice*/
 /alphamate/run*/
+
+# Built manuscript artifacts (regenerate: python3 research/build_pdf.py + weasyprint)
+/research/MANUSCRIPT.html
+/research/MANUSCRIPT.pdf
