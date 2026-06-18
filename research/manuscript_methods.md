@@ -10,13 +10,15 @@ For n selection candidates with estimated breeding values **b** ∈ ℝⁿ and a
 genomic relationship matrix **G** ∈ ℝⁿˣⁿ, optimum contribution selection chooses
 proportional genetic contributions **c** that solve
 
-  maximise **bᵀc**  subject to  **Ac = d**,  **c ≥ 0**,  **cᵀGc ≤ k**.
+  maximise **bᵀc**  subject to  **Ac = d**,  **0 ≤ c ≤ u**,  **cᵀGc ≤ k**.
 
 The affine constraints **Ac = d** encode the contribution budget. In the simplex
 form a single row **A = 𝟙ᵀ**, **d = 1**, imposes Σcᵢ = 1. In the *sexed* form —
 the true OCS, since each mating draws one parent of each sex — **A** is the 2×n
 sex-incidence matrix (row 1 the male indicator, row 2 the female indicator) and
-**d** = (½, ½)ᵀ, imposing Σ_{males}cᵢ = Σ_{females}cᵢ = ½. The kinship bound
+**d** = (½, ½)ᵀ, imposing Σ_{males}cᵢ = Σ_{females}cᵢ = ½. The per-candidate cap
+**u** bounds any single individual's contribution — a breeder rarely lets one parent
+dominate a generation — and is inactive at **u = 1**. The kinship bound
 **cᵀGc ≤ k** caps the mean coancestry of the offspring. We take **G** as the
 VanRaden genomic relationship matrix, **G = ZZᵀ/s + εI**, where **Z** is the n×m
 matrix of genotypes centred by twice the allele frequencies, s = 2Σⱼpⱼ(1−pⱼ), and
@@ -28,12 +30,13 @@ cone program.
 ## Two structural facts
 
 Support-first rests on two properties of the optimum **c\***. First, at a binding
-kinship cap **c\*** is supported on a small set S = {i : c\*ᵢ > 0}, and S is
-empirically bounded as n grows (Results). Second, on the face where the c ≥ 0
-constraints inactive on S are dropped, the problem restricted to S — maximise a
-linear form over an ellipsoid intersected with the affine constraints — has a
-closed-form solution. The whole difficulty is therefore identifying S; everything
-else is a small direct solve.
+kinship cap **c\*** is supported on a small set S = {i : 0 < c\*ᵢ < uᵢ} of *free*
+contributions, and S is empirically bounded as n grows (Results). Second, on the
+face where the inactive bound constraints are dropped (candidates fixed at 0 or at
+their cap **u**), the problem restricted to S — maximise a linear form over an
+ellipsoid intersected with the affine constraints — has a closed-form solution. The
+whole difficulty is therefore identifying S and which candidates sit at their cap;
+everything else is a small direct solve.
 
 ## Closed form on a fixed support
 
@@ -94,6 +97,16 @@ with a degeneracy threshold scaled to the coefficient magnitudes guarantees fini
 termination. Reduced-cost pricing toward a *single* fixed cap k distinguishes the
 support update from the critical line algorithm, which changes the active set by
 ±1 along a swept multiplier to trace the whole efficient frontier.
+
+A per-candidate cap **c ≤ u** is absorbed by the same active set with no loss of the
+closed form. A free contribution that overshoots its cap is fixed at uⱼ and moved to
+an *upper* set U; a candidate already in U is released back to the free set when its
+reduced cost turns negative. With U fixed, the restricted solve keeps its structure
+— the fixed contributions enter the affine right-hand side as **d − A_U u_U** and
+the active ellipsoid as a matrix-free offset **G_{·U} u_U** plus a constant, leaving
+the same Cholesky and scalar quadratic. The bounded solve reduces to the unbounded
+one when no cap binds, and reaches the same optimum as a conic interior-point solver
+on the matching **c ≤ u** cone program under binding caps.
 
 ## Matrix-free kinship products
 

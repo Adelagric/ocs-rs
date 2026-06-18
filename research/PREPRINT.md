@@ -39,7 +39,8 @@ that never forms it: on a laptop it solves an instance (n = 40000) whose dense m
 individuals — doing what is otherwise infeasible, not merely doing it faster. It exploits two
 structural facts of OCS: the optimal
 contribution vector is supported on a tiny subset of candidates (typically 2–50 of n),
-and the only constraint that is hard to satisfy is non-negativity. Support-first grows the
+and the only difficulty is combinatorial — which candidates are free versus pinned at a
+bound (zero, or a per-candidate cap). Support-first grows the
 support by an active-set / column-generation rule and solves each fixed-support subproblem
 — maximise a linear objective over an ellipsoid intersected with the affine sum (and sex)
 constraints — in closed form, with no inner iterative solver. It is **matrix-free**: it

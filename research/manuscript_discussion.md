@@ -51,11 +51,11 @@ is tightened. Crucially, this concerns the support of an *extreme* optimum — w
 active-set solvers such as support-first return, whereas interior-point and ADMM
 conic solvers return non-sparse interior points and threshold them post hoc — so
 the bound is a statement about precisely what support-first computes. We develop
-this characterisation in follow-on work. Finally, we solve a
-single quadratic kinship constraint and return continuous contributions, whereas
-breeding programmes may impose several constraints at once — multiple relationship
-matrices, own-relationship caps, group-specific limits — and ultimately require an
-integer mate allocation, which AlphaMate provides and support-first does not.
+this characterisation in follow-on work. Finally, the solver handles a single
+quadratic kinship constraint, per-candidate contribution caps (0 ≤ c ≤ u), and the
+sex equalities, but not yet several quadratic constraints at once — multiple
+relationship matrices, group-specific coancestry limits — nor the integer mate
+allocation that AlphaMate provides; it returns continuous contributions.
 
 Each limitation points to an extension. The closed-form-per-support core already
 admits more than one equality constraint through the same elimination
