@@ -1,5 +1,7 @@
 # ocs-rs — support-first optimum contribution selection
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20746987.svg)](https://doi.org/10.5281/zenodo.20746987)
+
 An **exact, matrix-free** solver for genomic Optimum Contribution Selection (OCS)
 that exploits the sparsity of the *solution*: the optimal contribution vector
 activates only a handful of candidates, so support-first finds that small support
