@@ -3,7 +3,7 @@ name = "ocs_rs"
 version = "0.1.0"
 edition = "2024"
 description = "Exact, matrix-free support-first solver for genomic Optimum Contribution Selection (OCS)."
-license = "MIT OR Apache-2.0"
+license = "MIT"
 
 [dependencies]
 # Conic interior-point solver, kept as an independent cross-check oracle for the
