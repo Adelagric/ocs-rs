@@ -38,9 +38,20 @@ matrix-free product is *not* an inner-loop speed-up when markers outnumber
 candidates (m > n), where streaming the genotype matrix costs more than a resident
 dense product. The matrix-free route is the memory and large-n enabler; the speed
 advantage over the conic solvers is the small active set. Fourth, the
-boundedness of the optimal support as n grows is, here, an empirical observation
-across a synthetic sweep and the real panels, not a theorem; how the bound depends
-on population structure and linkage disequilibrium is open. Finally, we solve a
+boundedness of the optimal support is, in this paper, an empirical observation
+across a synthetic sweep and the real panels, not yet a theorem — though the route
+to one appears short. At an optimal extreme point of the simplex (or the
+sex-constrained polytope) with a single active second-order-cone constraint, the
+support is bounded by the number of binding constraints, independent of n, by an
+extreme-point / Carathéodory argument (Barvinok–Pataki rank counting), with the
+low-rank genomic matrix G = ZZᵀ/s (rank ≤ m markers) sharpening the cone-face term;
+the classical genetics of contributions (the Σcᵢ² ↔ rate of inbreeding ↔ effective
+population size lineage) accounts in turn for the growth of the support as the cap
+is tightened. Crucially, this concerns the support of an *extreme* optimum — which
+active-set solvers such as support-first return, whereas interior-point and ADMM
+conic solvers return non-sparse interior points and threshold them post hoc — so
+the bound is a statement about precisely what support-first computes. We develop
+this characterisation in follow-on work. Finally, we solve a
 single quadratic kinship constraint and return continuous contributions, whereas
 breeding programmes may impose several constraints at once — multiple relationship
 matrices, own-relationship caps, group-specific limits — and ultimately require an

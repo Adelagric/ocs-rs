@@ -28,13 +28,16 @@ Single-author draft.
 
 ## Abstract (draft — numbers locked from the benchmark tables)
 
-Optimum contribution selection (OCS) maximises expected genetic gain subject to a cap
-on the average coancestry of the next generation, the central tool for balancing gain
-against the loss of diversity in breeding programmes. At genomic scale the relationship
-matrix G is dense and n×n, and the standard exact tool (the optiSel R package) solves a
-quadratically-constrained program whose cost grows steeply with the number of candidates,
-while the most widely used alternative (AlphaMate) is a stochastic heuristic. We present
-**support-first**, an exact solver that exploits two structural facts of OCS: the optimal
+Optimum contribution selection (OCS) — maximise genetic gain subject to a cap on the
+coancestry of the next generation — is the central tool for balancing gain against the loss
+of diversity in breeding programmes. Its computational bottleneck is the relationship matrix
+it constrains: at genomic scale that matrix is dense and n×n, costing O(n²m) to build and
+O(n²) to store, so the established exact (optiSel) and heuristic (AlphaMate) tools run into a
+memory wall exactly as candidate numbers grow. We present **support-first**, an exact solver
+that never forms it: on a laptop it solves an instance (n = 40000) whose dense matrix
+(11.9 GiB) the established tools cannot allocate, the optimal support holding at about fifteen
+individuals — doing what is otherwise infeasible, not merely doing it faster. It exploits two
+structural facts of OCS: the optimal
 contribution vector is supported on a tiny subset of candidates (typically 2–50 of n),
 and the only constraint that is hard to satisfy is non-negativity. Support-first grows the
 support by an active-set / column-generation rule and solves each fixed-support subproblem
@@ -45,13 +48,14 @@ never forms or stores the dense n×n G, computing G·c from the raw centred geno
 from the **tiny active set** (a handful of cheap iterations instead of a full conic
 interior-point solve), not from the matrix-free product itself. On real data — a CIMMYT
 wheat panel (n=599), a PIC pig (n=3534, 52k SNP), and a heterogeneous-stock mouse panel
-(n=1814, with real sex) — support-first reaches the exact optimum (agreeing with a conic
-interior-point solver to 1e-8, and saturating the kinship bound those solvers leave slightly
-slack) while running 90×–2280× faster (0.008 s vs 6.96 s on the sexed mouse instance), and
-~37000× faster than a general conic solver (Clarabel) at n=10000. Against AlphaMate the exact
-optimum dominates at every matched coancestry (mouse: Δgain +0.004 at the 45° tradeoff,
-larger elsewhere), at a small fraction of the run time (882 s CPU for the frontier vs ≤1.1 s
-per point).
+(n=1814, with real sex) — support-first returns the exact optimum on the kinship
+boundary — agreeing with a conic interior-point solver to 1e-8, which itself stops just short
+of that boundary — while running 90×–2280× faster (0.008 s vs 6.96 s on the sexed mouse
+instance) and ~37000× faster than a general conic solver (Clarabel) at n=10000. Against
+AlphaMate, on the continuous relaxation the two share, the exact optimum has higher gain at
+every matched coancestry (mouse: Δgain +0.004 at the 45° tradeoff, larger elsewhere) at a
+small fraction of the run time (882 s CPU for the frontier vs ≤1.1 s per point); AlphaMate's
+discrete mate allocation is a separate, out-of-scope problem.
 Support-first makes exact, reproducible OCS practical at genomic scale on a laptop.
 
 ---

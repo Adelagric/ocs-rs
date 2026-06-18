@@ -7,13 +7,16 @@
 
 ## Abstract
 
-Optimum contribution selection (OCS) maximises expected genetic gain subject to a cap
-on the average coancestry of the next generation, the central tool for balancing gain
-against the loss of diversity in breeding programmes. At genomic scale the relationship
-matrix G is dense and n×n, and the standard exact tool (the optiSel R package) solves a
-quadratically-constrained program whose cost grows steeply with the number of candidates,
-while the most widely used alternative (AlphaMate) is a stochastic heuristic. We present
-**support-first**, an exact solver that exploits two structural facts of OCS: the optimal
+Optimum contribution selection (OCS) — maximise genetic gain subject to a cap on the
+coancestry of the next generation — is the central tool for balancing gain against the loss
+of diversity in breeding programmes. Its computational bottleneck is the relationship matrix
+it constrains: at genomic scale that matrix is dense and n×n, costing O(n²m) to build and
+O(n²) to store, so the established exact (optiSel) and heuristic (AlphaMate) tools run into a
+memory wall exactly as candidate numbers grow. We present **support-first**, an exact solver
+that never forms it: on a laptop it solves an instance (n = 40000) whose dense matrix
+(11.9 GiB) the established tools cannot allocate, the optimal support holding at about fifteen
+individuals — doing what is otherwise infeasible, not merely doing it faster. It exploits two
+structural facts of OCS: the optimal
 contribution vector is supported on a tiny subset of candidates (typically 2–50 of n),
 and the only constraint that is hard to satisfy is non-negativity. Support-first grows the
 support by an active-set / column-generation rule and solves each fixed-support subproblem
@@ -24,13 +27,14 @@ never forms or stores the dense n×n G, computing G·c from the raw centred geno
 from the **tiny active set** (a handful of cheap iterations instead of a full conic
 interior-point solve), not from the matrix-free product itself. On real data — a CIMMYT
 wheat panel (n=599), a PIC pig (n=3534, 52k SNP), and a heterogeneous-stock mouse panel
-(n=1814, with real sex) — support-first reaches the exact optimum (agreeing with a conic
-interior-point solver to 1e-8, and saturating the kinship bound those solvers leave slightly
-slack) while running 90×–2280× faster (0.008 s vs 6.96 s on the sexed mouse instance), and
-~37000× faster than a general conic solver (Clarabel) at n=10000. Against AlphaMate the exact
-optimum dominates at every matched coancestry (mouse: Δgain +0.004 at the 45° tradeoff,
-larger elsewhere), at a small fraction of the run time (882 s CPU for the frontier vs ≤1.1 s
-per point).
+(n=1814, with real sex) — support-first returns the exact optimum on the kinship
+boundary — agreeing with a conic interior-point solver to 1e-8, which itself stops just short
+of that boundary — while running 90×–2280× faster (0.008 s vs 6.96 s on the sexed mouse
+instance) and ~37000× faster than a general conic solver (Clarabel) at n=10000. Against
+AlphaMate, on the continuous relaxation the two share, the exact optimum has higher gain at
+every matched coancestry (mouse: Δgain +0.004 at the 45° tradeoff, larger elsewhere) at a
+small fraction of the run time (882 s CPU for the frontier vs ≤1.1 s per point); AlphaMate's
+discrete mate allocation is a separate, out-of-scope problem.
 Support-first makes exact, reproducible OCS practical at genomic scale on a laptop.
 
 ## 1. Introduction
@@ -270,11 +274,15 @@ this is what the active set certifies on termination (and what the unit tests
 assert across a range of kinship caps). Empirically, on the optiSel `Cattle`
 example (Angler cattle, n = 268) with the package's own real recorded sex,
 support-first and optiSel select the *same* 36-individual support and agree on the
-contributions to within 3×10⁻⁴ (maximum contribution 0.0664 vs 0.0661). Where they
-differ is instructive: support-first reaches the exact optimum — gain 1.8315 with
-the kinship constraint saturated at its bound — while optiSel's interior-point
-solver stops about 0.4 % short (gain 1.8246, group kinship 0.0576 against a bound
-of 0.0578), leaving feasible gain on the table. Against an independent conic
+contributions to within 3×10⁻⁴ (maximum contribution 0.0664 vs 0.0661). They differ
+only at the kinship boundary: the OCS optimum sits on the cap (gain is monotone in
+it), and support-first reaches it (cᵀGc = k), whereas optiSel's interior-point
+solver halts at its convergence tolerance just inside the feasible region (group
+kinship 0.0576 against a bound of 0.0578). At matched realised coancestry the two
+agree — on the mouse panel both reach gain −0.29754 at coancestry 0.0346 — so
+support-first's small edge at its own operating point is the diversity budget
+optiSel leaves unspent on the boundary, not a different optimum: the difference is
+boundary-saturation versus an interior stop. Against an independent conic
 interior-point solver (Clarabel) on synthetic data the two agree to a gain
 difference below 10⁻⁸ across kinship caps, and the Rust implementation of the
 sexed solver reproduces a NumPy reference optimum to 1.5×10⁻¹⁴ on a binding
@@ -329,13 +337,17 @@ for a genomic breeding value.
 ### Comparison with the heuristic AlphaMate
 
 AlphaMate optimises a related but distinct problem — discrete mate allocation by a
-stochastic evolutionary algorithm — so the fair comparison evaluates *its*
-contribution vector in our metric and pits it against support-first at the same
-group coancestry. On the mouse panel support-first attains strictly higher genetic
-gain at every point of AlphaMate's frontier (Table 3): a small margin at the
-angle-45° trade-off optimum (Δgain +0.004) and larger margins at the
-diversity-control and gain-maximising corners. AlphaMate, being a discrete
-heuristic, leaves gain on the table everywhere. It was also markedly fragile on
+stochastic evolutionary algorithm — so this is not a like-for-like contest, and we
+read it accordingly. We score *its* contribution vector in our metric and compare,
+at matched group coancestry, only on the continuous-contribution relaxation the two
+methods share. On that relaxation support-first's exact optimum has higher gain than
+AlphaMate's vector at every point of its frontier (Table 3): a small margin at the
+angle-45° trade-off (Δgain +0.004) and larger ones at the corners — as an exact
+convex optimum should against a stochastic heuristic that additionally carries
+integer mating constraints. We read this as a consistency check (support-first is
+exact on the shared relaxation), not as AlphaMate being beaten at its own task,
+discrete mate allocation, which support-first does not do and which is out of scope
+here. AlphaMate was also markedly fragile on
 real genomic data: a successful run required six configurations and three distinct
 work-arounds — capping matings below n; restoring the full parent set, to avoid a
 setup segmentation fault that the reduced parent count triggered; and positively
@@ -371,13 +383,19 @@ never the n×n matrix.
 
 ### Support behaviour
 
-The advantage rests on the small, bounded support. At the mouse operating
-coancestry (0.0346) the optimum places weight on 19 of the 1814 candidates; the
-support enlarges only as the cap is driven toward zero — about 1163 individuals to
-force group coancestry near 0, where the solution must spread over much of the
-population to minimise relatedness. Across the synthetic sweep the support stays in
-the low tens as n grows forty-fold (Figure 1A), which is what makes the per-solve
-cost scale with the support rather than with n.
+The advantage rests on the support, whose size is a property of the operating point
+rather than a universal constant — so we characterise it along the whole frontier,
+not at a single cap. On the mouse panel the support grows smoothly and monotonically
+as the coancestry cap is tightened: 19 of 1814 candidates at the working coancestry
+(0.0346), 61 at 0.010, 133 at 0.003, 189 at 0.0015, 473 at 0.0002, and about 1163 as
+the cap approaches zero — where minimising relatedness forces the solution to spread
+over much of the population — and it collapses to two at a loose cap. The claim is
+therefore two-fold, and we keep the axes separate: at a *fixed* operating cap the
+support is bounded as n grows (14–19 up to n = 40000, Figure 1A), while *along* the
+frontier it grows as diversity is pushed. The per-solve cost tracks the support,
+which is small in the regime breeders actually use, and which we report across the
+frontier rather than at one point. Whether this is provable — n-independent at a
+fixed cap, growing as the cap tightens — is taken up in the Discussion.
 
 ## 4. Discussion
 
@@ -416,9 +434,20 @@ matrix-free product is *not* an inner-loop speed-up when markers outnumber
 candidates (m > n), where streaming the genotype matrix costs more than a resident
 dense product. The matrix-free route is the memory and large-n enabler; the speed
 advantage over the conic solvers is the small active set. Fourth, the
-boundedness of the optimal support as n grows is, here, an empirical observation
-across a synthetic sweep and the real panels, not a theorem; how the bound depends
-on population structure and linkage disequilibrium is open. Finally, we solve a
+boundedness of the optimal support is, in this paper, an empirical observation
+across a synthetic sweep and the real panels, not yet a theorem — though the route
+to one appears short. At an optimal extreme point of the simplex (or the
+sex-constrained polytope) with a single active second-order-cone constraint, the
+support is bounded by the number of binding constraints, independent of n, by an
+extreme-point / Carathéodory argument (Barvinok–Pataki rank counting), with the
+low-rank genomic matrix G = ZZᵀ/s (rank ≤ m markers) sharpening the cone-face term;
+the classical genetics of contributions (the Σcᵢ² ↔ rate of inbreeding ↔ effective
+population size lineage) accounts in turn for the growth of the support as the cap
+is tightened. Crucially, this concerns the support of an *extreme* optimum — which
+active-set solvers such as support-first return, whereas interior-point and ADMM
+conic solvers return non-sparse interior points and threshold them post hoc — so
+the bound is a statement about precisely what support-first computes. We develop
+this characterisation in follow-on work. Finally, we solve a
 single quadratic kinship constraint and return continuous contributions, whereas
 breeding programmes may impose several constraints at once — multiple relationship
 matrices, own-relationship caps, group-specific limits — and ultimately require an

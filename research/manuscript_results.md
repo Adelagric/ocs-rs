@@ -13,11 +13,15 @@ this is what the active set certifies on termination (and what the unit tests
 assert across a range of kinship caps). Empirically, on the optiSel `Cattle`
 example (Angler cattle, n = 268) with the package's own real recorded sex,
 support-first and optiSel select the *same* 36-individual support and agree on the
-contributions to within 3×10⁻⁴ (maximum contribution 0.0664 vs 0.0661). Where they
-differ is instructive: support-first reaches the exact optimum — gain 1.8315 with
-the kinship constraint saturated at its bound — while optiSel's interior-point
-solver stops about 0.4 % short (gain 1.8246, group kinship 0.0576 against a bound
-of 0.0578), leaving feasible gain on the table. Against an independent conic
+contributions to within 3×10⁻⁴ (maximum contribution 0.0664 vs 0.0661). They differ
+only at the kinship boundary: the OCS optimum sits on the cap (gain is monotone in
+it), and support-first reaches it (cᵀGc = k), whereas optiSel's interior-point
+solver halts at its convergence tolerance just inside the feasible region (group
+kinship 0.0576 against a bound of 0.0578). At matched realised coancestry the two
+agree — on the mouse panel both reach gain −0.29754 at coancestry 0.0346 — so
+support-first's small edge at its own operating point is the diversity budget
+optiSel leaves unspent on the boundary, not a different optimum: the difference is
+boundary-saturation versus an interior stop. Against an independent conic
 interior-point solver (Clarabel) on synthetic data the two agree to a gain
 difference below 10⁻⁸ across kinship caps, and the Rust implementation of the
 sexed solver reproduces a NumPy reference optimum to 1.5×10⁻¹⁴ on a binding
@@ -72,13 +76,17 @@ for a genomic breeding value.
 ## Comparison with the heuristic AlphaMate
 
 AlphaMate optimises a related but distinct problem — discrete mate allocation by a
-stochastic evolutionary algorithm — so the fair comparison evaluates *its*
-contribution vector in our metric and pits it against support-first at the same
-group coancestry. On the mouse panel support-first attains strictly higher genetic
-gain at every point of AlphaMate's frontier (Table 3): a small margin at the
-angle-45° trade-off optimum (Δgain +0.004) and larger margins at the
-diversity-control and gain-maximising corners. AlphaMate, being a discrete
-heuristic, leaves gain on the table everywhere. It was also markedly fragile on
+stochastic evolutionary algorithm — so this is not a like-for-like contest, and we
+read it accordingly. We score *its* contribution vector in our metric and compare,
+at matched group coancestry, only on the continuous-contribution relaxation the two
+methods share. On that relaxation support-first's exact optimum has higher gain than
+AlphaMate's vector at every point of its frontier (Table 3): a small margin at the
+angle-45° trade-off (Δgain +0.004) and larger ones at the corners — as an exact
+convex optimum should against a stochastic heuristic that additionally carries
+integer mating constraints. We read this as a consistency check (support-first is
+exact on the shared relaxation), not as AlphaMate being beaten at its own task,
+discrete mate allocation, which support-first does not do and which is out of scope
+here. AlphaMate was also markedly fragile on
 real genomic data: a successful run required six configurations and three distinct
 work-arounds — capping matings below n; restoring the full parent set, to avoid a
 setup segmentation fault that the reduced parent count triggered; and positively
@@ -114,10 +122,16 @@ never the n×n matrix.
 
 ## Support behaviour
 
-The advantage rests on the small, bounded support. At the mouse operating
-coancestry (0.0346) the optimum places weight on 19 of the 1814 candidates; the
-support enlarges only as the cap is driven toward zero — about 1163 individuals to
-force group coancestry near 0, where the solution must spread over much of the
-population to minimise relatedness. Across the synthetic sweep the support stays in
-the low tens as n grows forty-fold (Figure 1A), which is what makes the per-solve
-cost scale with the support rather than with n.
+The advantage rests on the support, whose size is a property of the operating point
+rather than a universal constant — so we characterise it along the whole frontier,
+not at a single cap. On the mouse panel the support grows smoothly and monotonically
+as the coancestry cap is tightened: 19 of 1814 candidates at the working coancestry
+(0.0346), 61 at 0.010, 133 at 0.003, 189 at 0.0015, 473 at 0.0002, and about 1163 as
+the cap approaches zero — where minimising relatedness forces the solution to spread
+over much of the population — and it collapses to two at a loose cap. The claim is
+therefore two-fold, and we keep the axes separate: at a *fixed* operating cap the
+support is bounded as n grows (14–19 up to n = 40000, Figure 1A), while *along* the
+frontier it grows as diversity is pushed. The per-solve cost tracks the support,
+which is small in the regime breeders actually use, and which we report across the
+frontier rather than at one point. Whether this is provable — n-independent at a
+fixed cap, growing as the cap tightens — is taken up in the Discussion.
