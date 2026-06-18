@@ -1381,4 +1381,40 @@ mod tests {
             unb.gain
         );
     }
+
+    #[test]
+    fn sexed_capped_whole_sex_at_cap() {
+        // Degenerate edge: a whole sex pinned at its cap (5 females capped at 0.1,
+        // summing to exactly ½) leaves the free set single-sex. The solver must
+        // still return a feasible, sex-split optimum, not stall.
+        let d = datagen::generate(45, 1500, 3);
+        let ridge = 1e-5;
+        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
+        let k = 0.6 * mean_diag;
+        let male: Vec<bool> = (0..d.n).map(|i| i >= 5).collect(); // indices 0..5 female
+        let mut caps = vec![1.0_f64; d.n];
+        for c in caps.iter_mut().take(5) {
+            *c = 0.1; // 5 females × 0.1 = ½ ⇒ all females forced to their cap
+        }
+
+        let sf = solve_sexed_capped(&d.z, d.s, ridge, &d.b, &male, &caps, k, 4000, 1e-7);
+        assert_eq!(
+            sf.status,
+            SfStatus::Solved,
+            "whole-sex-at-cap did not solve"
+        );
+        assert!(sf.quad <= k + 1e-6, "kinship {} > k {}", sf.quad, k);
+        assert!(sf.c.iter().all(|&c| c >= -1e-7));
+        assert!(
+            sf.c.iter().zip(&caps).all(|(&c, &u)| c <= u + 1e-6),
+            "upper bound violated"
+        );
+        let sum_m: f64 = (0..d.n).filter(|&i| male[i]).map(|i| sf.c[i]).sum();
+        let sum_f: f64 = (0..d.n).filter(|&i| !male[i]).map(|i| sf.c[i]).sum();
+        assert!(
+            (sum_m - 0.5).abs() < 1e-6 && (sum_f - 0.5).abs() < 1e-6,
+            "sex split off"
+        );
+    }
 }
