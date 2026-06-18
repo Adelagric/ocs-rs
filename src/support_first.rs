@@ -524,6 +524,260 @@ pub fn solve_sexed(
     }
 }
 
+/// Closed-form restricted simplex solve with a subset of candidates fixed at their
+/// upper bound. `o[i] = (G c_U)_i` over the free set (the offset the fixed-at-upper
+/// contributions add), `cuu = c_Uᵀ G c_U`, and `dprime = 1 − Σ_U u` is the residual
+/// simplex mass the free set must carry. Returns `(c_F, μ, λ)`. Reduces exactly to
+/// [`closed_form`] when the fixed set is empty (`o = 0`, `cuu = 0`, `dprime = 1`):
+/// the fixed contributions enter the affine right-hand side and the active ellipsoid
+/// as constants, leaving the per-support solve a single Cholesky and a scalar
+/// quadratic in `t = 1/(2λ)`.
+fn closed_form_capped(
+    g_ss: &Mat<f64>,
+    b_s: &[f64],
+    o: &[f64],
+    cuu: f64,
+    dprime: f64,
+    k: f64,
+) -> Option<(Vec<f64>, f64, f64)> {
+    let ns = b_s.len();
+    if ns == 1 {
+        // 1ᵀc_F = dprime with one free variable ⇒ c_F = [dprime] (forced).
+        let c0 = dprime;
+        let qv = c0 * c0 * g_ss[(0, 0)] + 2.0 * o[0] * c0 + cuu;
+        if c0 < -1e-9 || qv > k + 1e-9 {
+            return None;
+        }
+        return Some((vec![c0], b_s[0], 0.0));
+    }
+    let llt = g_ss.llt(Side::Lower).ok()?;
+    // G_FF [w | v | p] = [1 | b_F | o].
+    let rhs = Mat::from_fn(ns, 3, |i, j| match j {
+        0 => 1.0,
+        1 => b_s[i],
+        _ => o[i],
+    });
+    let sol = llt.solve(rhs.as_ref());
+    let w: Vec<f64> = (0..ns).map(|i| sol[(i, 0)]).collect();
+    let v: Vec<f64> = (0..ns).map(|i| sol[(i, 1)]).collect();
+    let p: Vec<f64> = (0..ns).map(|i| sol[(i, 2)]).collect();
+    let alpha: f64 = w.iter().sum(); // 1ᵀG⁻¹1
+    let beta: f64 = v.iter().sum(); // 1ᵀG⁻¹b
+    let sp: f64 = p.iter().sum(); // 1ᵀG⁻¹o
+    if alpha.abs() < 1e-300 {
+        return None;
+    }
+    let e = beta / alpha; // P⁻¹q  (P = α scalar)
+    let dpp = dprime + sp; // d'' = d' + 1ᵀG⁻¹o
+    let fv = dpp / alpha; // P⁻¹d''
+    // g = v − e·w ;  h' = fv·w − p ;  images (G g)_i = b_i − e, (G h')_i = fv − o_i.
+    let g: Vec<f64> = (0..ns).map(|i| v[i] - e * w[i]).collect();
+    let hp: Vec<f64> = (0..ns).map(|i| fv * w[i] - p[i]).collect();
+    let (mut a_c, mut cross, mut hh, mut og, mut oh) = (0.0, 0.0, 0.0, 0.0, 0.0);
+    for i in 0..ns {
+        let gg = b_s[i] - e; // (G g)_i
+        let gh = fv - o[i]; // (G h')_i
+        a_c += g[i] * gg;
+        cross += g[i] * gh;
+        hh += hp[i] * gh;
+        og += o[i] * g[i];
+        oh += o[i] * hp[i];
+    }
+    let kp = k - cuu;
+    // Active ellipsoid: a_c·t² + (2 cross + 2 og)·t + (hh + 2 oh − k') = 0, t = 1/(2λ).
+    let mut best: Option<(Vec<f64>, f64, f64, f64)> = None; // (c, μ, λ, gain)
+    for t in solve_quadratic(a_c, 2.0 * cross + 2.0 * og, hh + 2.0 * oh - kp) {
+        if t <= 0.0 {
+            continue;
+        }
+        let lam = 1.0 / (2.0 * t);
+        let cs: Vec<f64> = (0..ns).map(|i| t * g[i] + hp[i]).collect();
+        let gain: f64 = b_s.iter().zip(&cs).map(|(b, c)| b * c).sum();
+        if best.as_ref().is_none_or(|bb| gain > bb.3) {
+            best = Some((cs, e - 2.0 * lam * fv, lam, gain));
+        }
+    }
+    best.map(|(cs, mu, lam, _)| (cs, mu, lam))
+}
+
+/// Solve the simplex OCS with per-candidate upper bounds `0 ≤ c ≤ caps`.
+///
+/// Bounded-variable active set: a free working set `F` (the support, `0 < cᵢ < uᵢ`)
+/// and an upper set `U` (`cᵢ = uᵢ`). Each iteration solves [`closed_form_capped`] on
+/// `F` with `U` fixed; a free contribution that overshoots its cap is moved to `U`,
+/// one that goes negative is dropped, and at a clean solve candidates are priced —
+/// a zero-bound candidate is added if its reduced cost is positive, an upper-bound
+/// candidate is **released** back to `F` if its reduced cost has turned negative.
+/// A feasible point with no such violation is the (bounded) KKT optimum. `caps` must
+/// satisfy `Σ caps ≥ 1` (else the simplex is infeasible).
+#[allow(clippy::too_many_arguments)]
+pub fn solve_capped(
+    z: &Mat<f64>,
+    s: f64,
+    ridge: f64,
+    b: &[f64],
+    caps: &[f64],
+    k: f64,
+    max_iter: u32,
+    tol: f64,
+) -> SupportFirstOutcome {
+    let n = b.len();
+    let mut free = vec![argmax(b)];
+    let mut at_upper: Vec<usize> = Vec::new();
+    let mut c_cur = vec![0.0; n];
+    c_cur[free[0]] = caps[free[0]].min(1.0);
+    let mut products = 0u32;
+    let mut dropped = vec![false; n];
+
+    for it in 0..max_iter {
+        let g_ff = build_gss(z, s, ridge, &free);
+        let b_f: Vec<f64> = free.iter().map(|&i| b[i]).collect();
+        // Offsets from the upper set, matrix-free: G·(caps on U).
+        let (o, cuu, dprime) = if at_upper.is_empty() {
+            (vec![0.0; free.len()], 0.0, 1.0)
+        } else {
+            let mut u_full = vec![0.0; n];
+            for &j in &at_upper {
+                u_full[j] = caps[j];
+            }
+            let gc_u = g_matvec(z, s, ridge, &u_full);
+            products += 1;
+            let o: Vec<f64> = free.iter().map(|&i| gc_u[i]).collect();
+            let cuu: f64 = at_upper.iter().map(|&j| caps[j] * gc_u[j]).sum();
+            let dprime = 1.0 - at_upper.iter().map(|&j| caps[j]).sum::<f64>();
+            (o, cuu, dprime)
+        };
+
+        match closed_form_capped(&g_ff, &b_f, &o, cuu, dprime, k) {
+            None => {
+                let gc = g_matvec(z, s, ridge, &c_cur);
+                products += 1;
+                let mut best_j = None;
+                let mut best_val = f64::INFINITY;
+                for (j, &gj) in gc.iter().enumerate() {
+                    if !free.contains(&j) && !at_upper.contains(&j) && !dropped[j] && gj < best_val
+                    {
+                        best_val = gj;
+                        best_j = Some(j);
+                    }
+                }
+                match best_j {
+                    Some(j) => free.push(j),
+                    None => break,
+                }
+            }
+            Some((cf, mu, lam)) => {
+                // Move overshooting free vars to U; drop negatives.
+                let mut keep = Vec::with_capacity(free.len());
+                let mut changed = false;
+                for idx in 0..free.len() {
+                    let i = free[idx];
+                    if cf[idx] > caps[i] + tol {
+                        at_upper.push(i);
+                        changed = true;
+                    } else if cf[idx] < tol {
+                        dropped[i] = true;
+                        changed = true;
+                    } else {
+                        keep.push(i);
+                    }
+                }
+                if changed {
+                    free = keep;
+                    if free.is_empty() {
+                        // need at least one free var to carry the residual mass
+                        let mut best_j = None;
+                        let mut best_b = f64::NEG_INFINITY;
+                        for (j, &bj) in b.iter().enumerate() {
+                            if !at_upper.contains(&j) && bj > best_b {
+                                best_b = bj;
+                                best_j = Some(j);
+                            }
+                        }
+                        match best_j {
+                            Some(j) => {
+                                dropped[j] = false;
+                                free.push(j);
+                            }
+                            None => break,
+                        }
+                    }
+                    continue;
+                }
+
+                let mut c = vec![0.0; n];
+                for idx in 0..free.len() {
+                    c[free[idx]] = cf[idx];
+                }
+                for &j in &at_upper {
+                    c[j] = caps[j];
+                }
+                c_cur = c;
+                let gc = g_matvec(z, s, ridge, &c_cur);
+                products += 1;
+
+                // Price: add a zero var with positive reduced cost, or release an
+                // upper var whose reduced cost has turned negative — best violator.
+                let mut best_j = None;
+                let mut best_score = tol;
+                let mut release = false;
+                for (j, &gj) in gc.iter().enumerate() {
+                    let r = b[j] - mu - 2.0 * lam * gj;
+                    if !free.contains(&j) && !at_upper.contains(&j) {
+                        if r > best_score {
+                            best_score = r;
+                            best_j = Some(j);
+                            release = false;
+                        }
+                    } else if at_upper.contains(&j) && -r > best_score {
+                        best_score = -r;
+                        best_j = Some(j);
+                        release = true;
+                    }
+                }
+                match best_j {
+                    None => {
+                        let mut sorted = free.clone();
+                        sorted.extend_from_slice(&at_upper);
+                        sorted.sort_unstable();
+                        let gain = b.iter().zip(&c_cur).map(|(b, c)| b * c).sum();
+                        let quad = c_cur.iter().zip(&gc).map(|(c, g)| c * g).sum();
+                        return SupportFirstOutcome {
+                            c: c_cur,
+                            support: sorted,
+                            iterations: it + 1,
+                            products,
+                            gain,
+                            quad,
+                            status: SfStatus::Solved,
+                        };
+                    }
+                    Some(j) => {
+                        dropped.iter_mut().for_each(|d| *d = false);
+                        if release {
+                            at_upper.retain(|&x| x != j);
+                        }
+                        free.push(j);
+                    }
+                }
+            }
+        }
+    }
+
+    let gc = g_matvec(z, s, ridge, &c_cur);
+    let mut sorted: Vec<usize> = (0..n).filter(|&i| c_cur[i] > tol).collect();
+    sorted.sort_unstable();
+    SupportFirstOutcome {
+        gain: b.iter().zip(&c_cur).map(|(b, c)| b * c).sum(),
+        quad: c_cur.iter().zip(&gc).map(|(c, g)| c * g).sum(),
+        c: c_cur,
+        support: sorted,
+        iterations: max_iter,
+        products: products + 1,
+        status: SfStatus::MaxIter,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -687,5 +941,60 @@ mod tests {
                 assert!(sf.c.iter().all(|&c| c >= -1e-7));
             }
         }
+    }
+
+    #[test]
+    fn capped_reduces_to_unbounded() {
+        // With no candidate fixed at its upper bound (o = 0, cuu = 0, dprime = 1)
+        // the capped closed form must reproduce the unbounded one exactly.
+        let g = Mat::<f64>::identity(3, 3);
+        let b = [3.0, 1.0, 2.0];
+        let k = 0.45;
+        let (cu, mu_u, lam_u) = closed_form(&g, &b, k).unwrap();
+        let (cc, mu_c, lam_c) = closed_form_capped(&g, &b, &[0.0; 3], 0.0, 1.0, k).unwrap();
+        for i in 0..3 {
+            assert!(
+                (cu[i] - cc[i]).abs() < 1e-9,
+                "c[{i}]: {} vs {}",
+                cu[i],
+                cc[i]
+            );
+        }
+        assert!((mu_u - mu_c).abs() < 1e-9 && (lam_u - lam_c).abs() < 1e-9);
+    }
+
+    #[test]
+    fn capped_matches_clarabel() {
+        // The crux: with binding per-candidate caps, the bounded active set must
+        // reach the same optimum as Clarabel solving the same c ≤ u cone problem.
+        let d = datagen::generate(60, 2000, 20240617);
+        let ridge = 1e-5;
+        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let l = grm.cholesky_lower().unwrap();
+        let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
+        let k = 0.6 * mean_diag;
+        let caps = vec![0.1_f64; d.n]; // binds: ≥ 10 candidates must share the mass
+
+        let prob = socp::build(Factor::Cholesky(&l), &d.b, k, d.s, Some(&caps));
+        let clar = conic::solve(&prob, conic::SolveConfig::default()).unwrap();
+        let sf = solve_capped(&d.z, d.s, ridge, &d.b, &caps, k, 4000, 1e-7);
+
+        assert_eq!(sf.status, SfStatus::Solved);
+        assert!(
+            (sf.gain - clar.gain).abs() < 1e-5,
+            "capped gain {} vs clarabel {}",
+            sf.gain,
+            clar.gain
+        );
+        assert!(sf.quad <= k + 1e-6, "kinship {} > k {}", sf.quad, k);
+        assert!(sf.c.iter().all(|&c| c >= -1e-7), "negative contribution");
+        assert!(
+            sf.c.iter().zip(&caps).all(|(&c, &u)| c <= u + 1e-6),
+            "upper bound violated"
+        );
+        assert!(
+            (sf.c.iter().sum::<f64>() - 1.0).abs() < 1e-6,
+            "off the simplex"
+        );
     }
 }
