@@ -1,14 +1,38 @@
-# ocs-rs
+# ocs-rs — support-first optimum contribution selection
 
-A go/no-go **spike**, not a product. It answers one question with measured
-numbers: *can the [Clarabel](https://clarabel.org) conic interior-point solver
-handle genomic-scale Optimum Contribution Selection (OCS) reliably and fast,
-given that the second-order-cone block the problem produces is effectively
-dense?*
+An **exact, matrix-free** solver for genomic Optimum Contribution Selection (OCS)
+that exploits the sparsity of the *solution*: the optimal contribution vector
+activates only a handful of candidates, so support-first finds that small support
+by active-set column generation, solves each fixed support in closed form, and
+never forms the dense `n×n` relationship matrix. It reaches the **same optimum**
+as the domain's exact tool (optiSel) **orders of magnitude faster**, and is
+validated on real genomic panels.
 
-The verdict, with the actual numbers from this machine, is written to
-[`REPORT.md`](REPORT.md) by the `all` command. Timing methodology and hardware
-are in [`BENCHES.md`](BENCHES.md); design rationale in [`DECISIONS.md`](DECISIONS.md).
+> Full write-up — derivation, tables, figure, references —
+> [`research/MANUSCRIPT.md`](research/MANUSCRIPT.md).
+> Reproduce every number in one command:
+> [`bash research/repro/repro.sh`](research/repro/REPRODUCE.md).
+
+## Results
+
+On real marker panels (CIMMYT wheat n=599, PIC pig n=3534, heterogeneous-stock
+mouse n=1814 with real sex):
+
+- **Exact.** Agrees with a conic interior-point optimum to `1e-8`, and *saturates*
+  the kinship bound that optiSel's IPM leaves slightly slack — at least as
+  accurate as the domain tool, exact where it is merely close. Cross-language
+  agreement with a NumPy reference: `1.5e-14`.
+- **vs optiSel** (the standard exact tool): **90×–2280×** faster, same optimum
+  (mouse: 0.008 s vs 6.96 s).
+- **vs Clarabel** (a generic conic solver): up to **37090×** at n=10000
+  (26 minutes → 43 ms).
+- **vs AlphaMate** (the heuristic): strictly higher gain at *every* matched
+  coancestry, at a small fraction of the run time.
+- **Scales.** The optimal support stays ~15 as n grows to 40000, while the dense
+  `G` every other solver forms reaches **11.9 GiB** (past laptop memory) — and
+  merely *building* it costs more than the whole support-first solve — whereas
+  the matrix-free `Z` footprint stays 0.30 GiB and the solve stays under 0.1 s
+  (Figure 1: [`research/fig_scaling.pdf`](research/fig_scaling.pdf)).
 
 ## The model
 
@@ -18,102 +42,91 @@ diversity).
 
 ```
 maximize    bᵀc                  b = genomic estimated breeding values (GEBV)
-subject to  Σ cᵢ = 1
+subject to  A c = d              budget: Σcᵢ = 1, or sexed Σ_males = Σ_females = ½
             c ≥ 0
-            cᵀ G c ≤ k            G = genomic relationship matrix (VanRaden), k = kinship bound
-            c ≤ u                 optional per-candidate cap (off by default)
+            cᵀ G c ≤ k           G = VanRaden genomic relationship matrix, k = kinship bound
 ```
 
-`G` is symmetric positive semi-definite. `cᵀGc ≤ k` is a convex quadratic
-constraint, recast here as a **second-order cone** `‖Fᵀc‖₂ ≤ r` in two ways:
+`G = ZZᵀ/s + εI` is symmetric positive definite (ridge `ε`); `cᵀGc ≤ k` is a
+convex quadratic constraint (a second-order cone). The *sexed* form — the true
+OCS, each mating drawing one parent of each sex — replaces the simplex with two
+equality rows.
 
-| | factor `F` | radius `r` | SOC dimension | conic matrix |
-|---|---|---|---|---|
-| **Route A** (Cholesky) | `L` where `G = LLᵀ` | `√k` | `n+1` | `Lᵀ` (dense lower-tri, transposed) |
-| **Route B** (raw) | `Z` (centred genotypes), `G = ZZᵀ/s` | `√(k·s)` | `m+1` | `Zᵀ` (fully dense) |
+## How it works
 
-Route B skips the Cholesky entirely (`cᵀGc = ‖Zᵀc‖²/s`), at the cost of an
-`m+1` cone. With `m` (markers) ≫ `n` (individuals) — the genomic regime — Route
-A's `n+1` cone is far smaller, so it is the default; Route B is benchmarked at
-two sizes for the head-to-head.
+- **Active-set column generation.** Seed the support with the best male and
+  female; price candidates by reduced cost and add the best, toward a *single*
+  fixed coancestry cap `k`; drop negatives. A feasible point with no positive
+  reduced cost is KKT-optimal — exact, not heuristic.
+- **Closed form per support.** Eliminate the equality constraints through a
+  `q×q` reduction `P = A_S G_S⁻¹ A_Sᵀ` (q ≤ 2) and read the multiplier off a
+  scalar quadratic — one Cholesky, no inner iteration.
+- **Matrix-free.** `Gc = εc + Z(Zᵀc)/s`; the dense `n×n` `G` is never formed.
 
-### Clarabel mapping
-
-Clarabel solves `min ½xᵀPx + qᵀx s.t. Ax + s = b, s ∈ K`. OCS maps to it with
-`P = 0`, `q = -b`, and a stacked `A`/`b`/cone list:
-
-| block | rows | `A` | `b` | cone |
-|---|---|---|---|---|
-| `Σcᵢ = 1` | 1 | `1ᵀ` | `1` | `ZeroConeT(1)` |
-| `c ≥ 0` | `n` | `-I` | `0` | `NonnegativeConeT(n)` |
-| `‖Fᵀc‖ ≤ r` | `d+1` | `[0ᵀ; -Fᵀ]` | `[r, 0…]` | `SecondOrderConeT(d+1)` |
-| `c ≤ u` (opt) | `n` | `I` | `u` | `NonnegativeConeT(n)` |
-
-The SOC slack is `s = b − Ax = (r, Fᵀc)`, hence `‖Fᵀc‖ ≤ r`. `A` is built
-directly in compressed-sparse-column form. **The point of the spike**: that
-`-Fᵀ` block (`Lᵀ` or `Zᵀ`) is dense, so the conic part of `A` is near-dense —
-whether Clarabel's sparse IPM copes with that at scale is exactly what is
-measured.
-
-### Synthetic data (seeded, reproducible)
-
-- allele frequencies `pⱼ ~ Uniform(0.05, 0.5)`
-- dosages `Mᵢⱼ ~ Binomial(2, pⱼ) ∈ {0,1,2}`
-- VanRaden: `Z = M − 2p`, `G = ZZᵀ / (2 Σⱼ pⱼ(1−pⱼ))`, ridged `G + εI`
-  (`ε = 1e-5` default; auto-escalated and reported if Cholesky needs more)
-- `b ~ N(0, 1)`
+Derivation in [`research/MANUSCRIPT.md`](research/MANUSCRIPT.md) (Methods);
+implementation in [`src/support_first.rs`](src/support_first.rs)
+(`solve` simplex, `solve_sexed` sexed).
 
 ## Running
 
 ```sh
-cargo run --release                       # = `all`: correctness + frontier + scaling sweep + REPORT.md
-cargo run --release -- all --max-n 2000   # cap the sweep (faster smoke run)
+# support-first head-to-head and benchmarks
+cargo run --release -- compare --n 5000          # Clarabel vs support-first, same optimum
+cargo run --release --example bench_sexed         # sexed solver: release timing + cross-language export
+cargo run --release --example scaling_matrixfree  # Figure 1 data: support/time bounded vs dense-G blow-up
 
-cargo run --release -- correctness        # n=50, dump artifacts, assert feasibility (exit 0/1)
-cargo run --release -- frontier           # sweep k, assert gain monotone in k -> artifacts/frontier.csv
-cargo run --release -- scale --n 5000 --route a   # one point; prints a CSV row to stdout
-cargo run --release -- report             # rebuild REPORT.md from existing artifacts/ (no re-solving)
-cargo run --release -- compare --n 5000   # Clarabel vs the support-first solver, head-to-head
+# the original Clarabel evaluation harness
+cargo run --release                               # = `all`: correctness + frontier + scaling -> REPORT.md
+cargo run --release -- scale --n 5000 --route a   # one timing point (CSV row on stdout)
 ```
 
-Flags: `--n --m --seed --k-frac --route a|b --max-iter --time-limit --max-n`.
-`stdout` is data (the `scale` CSV row); progress goes to `stderr`.
+`stdout` is data; progress goes to `stderr`. Flags:
+`--n --m --seed --k-frac --route a|b --max-iter --time-limit --max-n`.
 
-Artifacts land in `artifacts/`:
-- `correctness/` — `grm_true.csv`, `b.csv`, `c.csv`, `meta.csv` for independent
-  cross-check (the dumped problem is reproducible in cvxpy/optiSel/numpy)
-- `frontier.csv` — `(k, diversity cᵀGc, gain, feasible)`
-- `scaling.csv` — per-(n, route) timing split, status, iterations, peak RSS
+## Reproduction
 
-Peak RSS is measured by re-spawning each scaling point under `/usr/bin/time -l`
-(macOS), so each number is that process's own high-water mark.
+```sh
+bash research/repro/repro.sh
+```
+
+Runs everything the local toolchain allows (Rust timings, Figure 1, the R GRM
+exports via `BGLR`, support-first vs optiSel) and skips — with a message —
+anything whose dependency or dataset is absent. The PIC pig panel needs a
+one-time manual download (URL + layout in
+[`research/repro/REPRODUCE.md`](research/repro/REPRODUCE.md)); AlphaMate runs from
+a Linux binary under Colima + Rosetta (recipe in the same file).
 
 ## Verification
 
 ```sh
-cargo test                                # feasibility + monotonicity + CSC-assembler properties
+cargo test                                 # KKT certificates, feasibility, monotonicity, CSC properties
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
-cargo run --release --example spike       # hand-checked 2-variable optimum (kept API regression test)
 ```
 
-The n=50 solution has been cross-checked two ways independent of this crate's
-own arithmetic: feasibility recomputed in numpy from the dumped CSVs, and the
-optimum re-solved with SciPy SLSQP (a different solver) — both agree to ~1e-9.
-See [`REPORT.md`](REPORT.md).
+A `Solved` result is always feasible and on the budget (sex-split for the sexed
+solver), certified across a range of caps `k`. The optimum is cross-checked
+independently of this crate's arithmetic: against Clarabel (conic IPM), a NumPy
+reference (`1.5e-14`), SciPy SLSQP, and optiSel on real data.
 
-## Beyond the spike — a faster exact solver
+## Origin — the Clarabel spike
 
-The Clarabel verdict is GO, but the conic IPM pays O(n³) per iteration to
-describe a solution that activates only a handful of candidates. `research/`
-explores **support-first**, an exact column-generation solver that exploits that
-sparsity (closed form per support + matrix-free `Z` products). It is ported to
-`src/support_first.rs` and reaches the *same* optimum as Clarabel (gain Δ ~1e-9,
-same active support) far faster — run `cargo run --release -- compare --n N` to
-see the head-to-head. See [`research/SUPPORT_FIRST.md`](research/SUPPORT_FIRST.md)
-for the derivation, measurements, and open questions (real-data validation,
-state-of-the-art positioning). Still synthetic-only — a lead, not a finished
-result.
+This began as a go/no-go on whether the [Clarabel](https://clarabel.org) conic
+interior-point solver handles genomic-scale OCS (verdict: **GO**, see
+[`REPORT.md`](REPORT.md), [`BENCHES.md`](BENCHES.md), [`DECISIONS.md`](DECISIONS.md)).
+That spike exposed the opening: the conic IPM pays `O(n³)` per iteration to
+describe a solution that activates a handful of candidates. support-first
+exploits exactly that. Clarabel is kept as an independent cross-check oracle.
+
+## Honest caveats
+
+`b` is a recorded phenotype or EBV standing in for a true genomic breeding value
+on the public panels; a genuine recorded sex exists only for the mouse panel
+(arbitrary balanced split elsewhere); the optiSel head-to-head times a NumPy
+prototype against R (the gap is algorithmic, not language); the support bound is
+empirical, not proven; and the solver handles a single quadratic constraint and
+continuous contributions (no integer mate allocation). These are stated in the
+manuscript's Discussion.
 
 ## Constraints honoured
 
