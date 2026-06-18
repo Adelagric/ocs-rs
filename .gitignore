@@ -6,3 +6,10 @@
 # Transient run logs / pid from the sweep orchestrator
 /sweep.*
 *.tmp
+
+# Third-party AlphaMate source — clone separately (see research/repro/REPRODUCE.md)
+/alphamate/AlphaMate-src/
+
+# Generated AlphaMate run directories (large coancestry/Nrm matrices, reproducible)
+/alphamate/run_mice*/
+/alphamate/run*/

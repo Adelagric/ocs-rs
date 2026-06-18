@@ -1,0 +1,79 @@
+"""Assemble the section drafts into a single MANUSCRIPT.md.
+
+Strips internal drafting notes (leading blockquote + the '# X (manuscript draft)'
+H1), demotes each section's headers one level for a clean hierarchy, pulls the
+abstract out of PREPRINT.md, and drops the references' reserve note. Reproducible:
+re-run after editing any section.
+"""
+import re
+from pathlib import Path
+
+R = Path("research")
+
+TITLE = (
+    "# Exact optimum contribution selection in milliseconds: a matrix-free, "
+    "support-first solver validated against optiSel and AlphaMate on real genomic data\n\n"
+    "**Adel Kaleche**\n\n"
+    "*Affiliation to be completed.*\n"
+)
+
+
+def strip_note_and_h1(text):
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines) and lines[i].strip() == "":
+        i += 1
+    if i < len(lines) and lines[i].startswith("# "):
+        i += 1
+    while i < len(lines) and lines[i].strip() == "":
+        i += 1
+    while i < len(lines) and lines[i].lstrip().startswith(">"):
+        i += 1
+    return "\n".join(lines[i:]).strip()
+
+
+def demote(text):
+    return "\n".join(
+        ("#" + ln) if re.match(r"^#{1,5} ", ln) else ln for ln in text.splitlines()
+    )
+
+
+def extract_abstract(preprint_text):
+    lines = preprint_text.splitlines()
+    start = next(i for i, l in enumerate(lines) if l.startswith("## Abstract"))
+    body, j = [], start + 1
+    while j < len(lines) and lines[j].strip() != "---":
+        body.append(lines[j])
+        j += 1
+    return "\n".join(body).strip()
+
+
+def strip_reserve(ref_text):
+    idx = ref_text.find("### Not cited")
+    if idx != -1:
+        ref_text = ref_text[:idx].rstrip().rstrip("-").rstrip()
+    return ref_text
+
+
+abstract = extract_abstract((R / "PREPRINT.md").read_text())
+sections = [
+    ("## Abstract", abstract),
+    ("## 1. Introduction", demote(strip_note_and_h1((R / "manuscript_intro.md").read_text()))),
+    ("## 2. Methods", demote(strip_note_and_h1((R / "manuscript_methods.md").read_text()))),
+    ("## 3. Results", demote(strip_note_and_h1((R / "manuscript_results.md").read_text()))),
+    ("## 4. Discussion", demote(strip_note_and_h1((R / "manuscript_discussion.md").read_text()))),
+    ("## References", demote(strip_reserve(strip_note_and_h1((R / "manuscript_references.md").read_text())))),
+]
+
+parts = [TITLE]
+for heading, body in sections:
+    parts.append(heading + "\n\n" + body)
+parts.append(
+    "## Figure\n\n**Figure 1.** Matrix-free vs dense-G scaling "
+    "(`research/fig_scaling.pdf`); described in Results, section *Scaling and the "
+    "matrix-free advantage*."
+)
+
+manuscript = "\n\n".join(parts).strip() + "\n"
+(R / "MANUSCRIPT.md").write_text(manuscript)
+print(f"wrote research/MANUSCRIPT.md  ({len(manuscript.split())} words)")

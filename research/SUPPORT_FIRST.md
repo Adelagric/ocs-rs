@@ -65,6 +65,18 @@ the IPM.
 - vs Clarabel (crate dump, n=2000): `Δgain ≈ 1e-8`
 - vs SciPy (pedigree + correlated EBV, n=400, |S|=7): `Δgain ≈ 1e-11`
 
+**Aligned against optiSel** (the domain reference, R `cccp` IPM). Reproduced
+optiSel's marker-based OCS on its `Cattle` example (Angler, n=268) with the *real*
+reproduction constraints `Σmales = Σfemales = 0.5` — which required extending
+support-first to two equality constraints (kernel of `[𝟙ₘ; 𝟙f]`). Result:
+identical active support (36/36), near-identical contributions (max 0.0664 vs
+0.0661), and support-first reaches the **exact** optimum (kinship saturated at
+the bound, gain 1.8315) where optiSel's IPM stops ~0.4% short (gain 1.8246,
+kinship 0.0576 < ub 0.0578). Same problem, same solution; support-first is at
+least as good. Caveat: optiSel's `Cattle` data is itself *simulated* and small
+(268 individuals, 800 markers) — a real dataset and a larger-scale *timing*
+comparison are the open items.
+
 An independent review verified the closed-form algebra (Vieta + Cauchy–Schwarz:
 exactly one root has λ>0 and it is the gain-maximiser) and `Solved ⇒ feasible &
 optimal` on 3400 brute-force instances (zero counter-examples). It also found one
@@ -114,6 +126,42 @@ population structure and the diversity demanded, not by candidate count). The
 product count is bounded likewise (~17 at k=0.15, ~50–60 at the tightest),
 independent of n.
 
+## Benchmark vs optiSel at scale — the test that matters
+
+The Clarabel comparison pits us against a *generic* solver. The real test is vs
+the **domain tool, optiSel** (R, `cccp` IPM), on its own formulation: the true
+sex-constrained OCS `max bᵀc s.t. Σmales=Σfemales=0.5, c≥0, cᵀGc≤k`. This
+required extending support-first to **two equality constraints** (eliminate
+`[𝟙ₘ; 𝟙f]` by its kernel; reduced costs become sex-dependent), and exposed — then
+fixed — a real efficiency bug: the feasibility phase added candidates **one at a
+time** (675 of 768 iterations at n=1000). Adding them **in chunks** (double the
+support until feasible) cuts iterations ~30× with the *identical* optimum.
+
+After that fix, support-first solves the same problem as optiSel, reaching the
+**exact** optimum (it saturates the kinship bound that optiSel's IPM leaves
+slightly slack), at:
+
+| dataset | n | support-first | optiSel | speedup |
+|---|---|---|---|---|
+| synthetic (structured) | 1000 | 0.09 s | 2.0 s | 22× |
+| synthetic (structured) | 2000 | 0.29 s | 11.9 s | 41× |
+| synthetic (structured) | 5000 | 1.47 s | 143 s | 97× |
+| **wheat** (real CIMMYT GRM) | 599 | 0.007 s | 0.63 s | 90× |
+| **PIC pig** (real GRM, 52k SNP) | **3534** | **0.024 s** | **54.8 s** | **~2280×** |
+| **HS mice** (real GRM, **REAL sex** 934♂/880♀) | **1814** | **0.008 s** | **6.96 s** | **~870×** |
+
+The **mouse row is the *true* sexed OCS** — a genuine recorded sex (BGLR `mice`,
+GENDER complete, 0 missing), not an arbitrary partition. Caveats kept explicit:
+support-first is the numpy prototype, optiSel is R/`cccp` (the gap is algorithmic,
+not language); the synthetic / wheat / pig rows use an **arbitrary 2-group sex
+partition** (wheat is autogamous; PIC ships no usable sex — chromosomes removed,
+only 390/3534 identifiable sires) so those benchmark the *solvers* on a real GRM
+rather than the true sexed OCS; `b` is a real phenotype/EBV (mouse BMI, pig
+trait-3 EBV); and the speedup grows with how *small* the active support is (a very
+tight `k` enlarges it and shrinks the factor). The first revision (proto "naively
+slower than optiSel") was entirely the one-at-a-time feasibility phase —
+corrected, the advantage is real, exact, and grows with scale.
+
 ## Where it sits vs the state of the art
 
 | method | exact? | regime | what it exploits | limit |
@@ -132,18 +180,22 @@ governed by `|S|` rather than `n³`.
 
 ## Open — must be cleared before any claim
 
-1. **Synthetic only.** The pedigree sim has 24 founders, so effective lineages
-   (hence `|S|` at very tight k) are mechanically capped. A real, broader genetic
-   base could give larger `|S|` at very tight k — still bounded by structure, not
-   by n, but to be measured on real genotypes (e.g. optiSel's cattle data).
-2. **Head-to-head exactness** confirmed against Clarabel on *identical* data at
-   n=5000: same optimum (Δgain 1.9e-9), same active support (4/4), support-first
-   solve 0.006 s vs Clarabel 191 s. Not yet repeated at n=10000 (KKT-certified
-   there, but the 30-min Clarabel reference was not re-run for a direct check).
-3. **Wall-clock claim** — now measured. The Rust port (`src/support_first.rs`,
-   closed form + `Z` products) gives 126×/472×/4474× at n=1000/2000/5000,
-   same-machine same-data. Still synthetic; the open item is real-data `|S|` and
-   timing, not the implementation.
+1. **Exactness & wall-clock — cleared.** Head-to-head vs Clarabel (pool-unique,
+   identical data, n=5000: Δgain 1.9e-9, same support) and vs optiSel (sex
+   constraint, real wheat and pig GRMs): same optimum every time, measured
+   speedups from 22× to ~2280×. Not extrapolation.
+2. **True sexed OCS — cleared.** HS mice (BGLR `mice`, real GENDER 934♂/880♀,
+   1814 individuals, real 10k-SNP GRM): support-first matches optiSel's optimum
+   and solves in 0.008 s vs 6.96 s (~870×). The genuine reproduction constraint,
+   not an arbitrary partition.
+3. **`|S|` on broad real populations / tight k.** On real pig data `|S|`≈28 (huge
+   speedup); a conservation-grade tight `k` would enlarge `|S|` and shrink the
+   factor — still bounded by structure, but to be mapped.
+4. **Rust port of the SEX version.** The sex variant (two equalities + chunked
+   feasibility) lives only in the numpy prototype; the Rust crate has the
+   pool-unique version. Porting it would make the optiSel comparison
+   same-language, not just same-machine.
+5. **AlphaMate** (the evolutionary heuristic) not yet compared.
 
 ## References
 
