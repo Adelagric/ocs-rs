@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "ocs-rs: support-first optimum contribution selection"
+abstract: >-
+  An exact, matrix-free solver for genomic optimum contribution selection (OCS)
+  that exploits the sparsity of the solution support: active-set column
+  generation toward a single coancestry cap, a closed-form per-support solve,
+  and matrix-free relationship-matrix products.
+type: software
+authors:
+  - family-names: Kaleche
+    given-names: Adel
+repository-code: "https://github.com/Adelagric/ocs-rs"
+license: MIT
+version: "0.1.0"
+date-released: "2026-06-18"
+keywords:
+  - optimum contribution selection
+  - genomic selection
+  - animal breeding
+  - active-set method
+  - second-order cone programming
+  - Rust
