@@ -778,6 +778,328 @@ pub fn solve_capped(
     }
 }
 
+/// Closed-form restricted **sexed** solve with a subset fixed at the upper bound.
+/// `o[i] = (G c_U)_i` over the free set, `cuu = c_Uᵀ G c_U`, and `d_m`/`d_f` are the
+/// residual sex sums the free set must meet (½ minus the upper-set mass of each
+/// sex). Returns `(c_F, μ_male, μ_female, λ)`. Reduces to [`closed_form_sexed`] when
+/// the fixed set is empty (`o = 0`, `cuu = 0`, `d = [½,½]`).
+#[allow(clippy::too_many_arguments)]
+fn closed_form_sexed_capped(
+    g_ss: &Mat<f64>,
+    b_s: &[f64],
+    male_s: &[bool],
+    o: &[f64],
+    cuu: f64,
+    d_m: f64,
+    d_f: f64,
+    k: f64,
+) -> Option<(Vec<f64>, f64, f64, f64)> {
+    let ns = b_s.len();
+    let n_male = male_s.iter().filter(|&&m| m).count();
+    if n_male == 0 || n_male == ns {
+        return None; // a whole sex is absent from the free set — re-seed it
+    }
+
+    if ns == 2 {
+        // 1 male + 1 female: A_F is 2×2 full rank ⇒ c_F forced by A_F c_F = (d_m,d_f).
+        let (m_pos, f_pos) = if male_s[0] { (0, 1) } else { (1, 0) };
+        let mut cs = vec![0.0; 2];
+        cs[m_pos] = d_m;
+        cs[f_pos] = d_f;
+        if cs[0] < -1e-9 || cs[1] < -1e-9 {
+            return None;
+        }
+        let qv = cs[0] * cs[0] * g_ss[(0, 0)]
+            + cs[1] * cs[1] * g_ss[(1, 1)]
+            + 2.0 * cs[0] * cs[1] * g_ss[(0, 1)]
+            + 2.0 * (o[0] * cs[0] + o[1] * cs[1])
+            + cuu;
+        if qv > k + 1e-9 {
+            return None;
+        }
+        return Some((cs, b_s[m_pos], b_s[f_pos], 0.0));
+    }
+
+    let llt = g_ss.llt(Side::Lower).ok()?;
+    // G_FF [W | bvec | pvec] = [A_Fᵀ | b_F | o]  (cols 0,1 = A_Fᵀ; 2 = b_F; 3 = o).
+    let rhs = Mat::from_fn(ns, 4, |i, j| match j {
+        0 => f64::from(male_s[i]),
+        1 => f64::from(!male_s[i]),
+        2 => b_s[i],
+        _ => o[i],
+    });
+    let sol = llt.solve(rhs.as_ref());
+
+    // P = A_F W (2×2), q = A_F bvec, sp = A_F pvec : sum rows by sex.
+    let (mut p00, mut p01, mut p10, mut p11) = (0.0, 0.0, 0.0, 0.0);
+    let (mut q0, mut q1, mut sp0, mut sp1) = (0.0, 0.0, 0.0, 0.0);
+    for i in 0..ns {
+        let (w0, w1, bvi, pvi) = (sol[(i, 0)], sol[(i, 1)], sol[(i, 2)], sol[(i, 3)]);
+        if male_s[i] {
+            p00 += w0;
+            p01 += w1;
+            q0 += bvi;
+            sp0 += pvi;
+        } else {
+            p10 += w0;
+            p11 += w1;
+            q1 += bvi;
+            sp1 += pvi;
+        }
+    }
+    let det = p00 * p11 - p01 * p10;
+    let scale = (p00.abs() + p01.abs() + p10.abs() + p11.abs()).max(1.0);
+    if det.abs() < 1e-14 * scale {
+        return None;
+    }
+    let apply_pinv = |x0: f64, x1: f64| ((p11 * x0 - p01 * x1) / det, (p00 * x1 - p10 * x0) / det);
+    let (e0, e1) = apply_pinv(q0, q1); // P⁻¹q
+    let (f0, f1) = apply_pinv(d_m + sp0, d_f + sp1); // P⁻¹d'', d'' = d' + A_F pvec
+
+    // g = bvec − W e ; h' = W f − pvec ; (G g)_i = b_i − e_sex, (G h')_i = f_sex − o_i.
+    let mut g = vec![0.0; ns];
+    let mut hp = vec![0.0; ns];
+    let (mut a_c, mut cross, mut hh, mut og, mut oh) = (0.0, 0.0, 0.0, 0.0, 0.0);
+    for i in 0..ns {
+        let (w0, w1, bvi, pvi) = (sol[(i, 0)], sol[(i, 1)], sol[(i, 2)], sol[(i, 3)]);
+        let (ei, fi) = if male_s[i] { (e0, f0) } else { (e1, f1) };
+        g[i] = bvi - (w0 * e0 + w1 * e1);
+        hp[i] = (w0 * f0 + w1 * f1) - pvi;
+        let gg = b_s[i] - ei; // (G g)_i
+        let gh = fi - o[i]; // (G h')_i
+        a_c += g[i] * gg;
+        cross += g[i] * gh;
+        hh += hp[i] * gh;
+        og += o[i] * g[i];
+        oh += o[i] * hp[i];
+    }
+    let kp = k - cuu;
+    let mut best: Option<(Vec<f64>, f64, f64, f64, f64)> = None; // (c,μm,μf,λ,gain)
+    for t in solve_quadratic(a_c, 2.0 * cross + 2.0 * og, hh + 2.0 * oh - kp) {
+        if t <= 0.0 {
+            continue;
+        }
+        let lam = 1.0 / (2.0 * t);
+        let cs: Vec<f64> = (0..ns).map(|i| t * g[i] + hp[i]).collect();
+        let gain: f64 = b_s.iter().zip(&cs).map(|(b, c)| b * c).sum();
+        if best.as_ref().is_none_or(|bb| gain > bb.4) {
+            best = Some((cs, e0 - 2.0 * lam * f0, e1 - 2.0 * lam * f1, lam, gain));
+        }
+    }
+    best.map(|(cs, mm, mf, lam, _)| (cs, mm, mf, lam))
+}
+
+/// Solve the **sexed** OCS with per-candidate upper bounds `0 ≤ c ≤ caps`.
+///
+/// The bounded-variable active set of [`solve_capped`], with the two sex equalities
+/// in place of the simplex: a free set `F`, an upper set `U` fixed at `caps`, and
+/// the residual sex sums `(½ − Σ_{U males} u, ½ − Σ_{U females} u)` handed to
+/// [`closed_form_sexed_capped`]. A sex that empties out of `F` (e.g. all its
+/// candidates pinned at the cap) is re-seeded with its best uncapped individual.
+#[allow(clippy::too_many_arguments)]
+pub fn solve_sexed_capped(
+    z: &Mat<f64>,
+    s: f64,
+    ridge: f64,
+    b: &[f64],
+    male: &[bool],
+    caps: &[f64],
+    k: f64,
+    max_iter: u32,
+    tol: f64,
+) -> SupportFirstOutcome {
+    let n = b.len();
+    let (best_m, best_f) = match (argmax_masked(b, male, true), argmax_masked(b, male, false)) {
+        (Some(m), Some(f)) => (m, f),
+        _ => {
+            return SupportFirstOutcome {
+                c: vec![0.0; n],
+                support: Vec::new(),
+                iterations: 0,
+                products: 0,
+                gain: 0.0,
+                quad: 0.0,
+                status: SfStatus::MaxIter,
+            };
+        }
+    };
+    let mut free = vec![best_m, best_f];
+    let mut at_upper: Vec<usize> = Vec::new();
+    let mut c_cur = vec![0.0; n];
+    c_cur[best_m] = caps[best_m].min(0.5);
+    c_cur[best_f] = caps[best_f].min(0.5);
+    let mut products = 0u32;
+    let mut dropped = vec![false; n];
+
+    // Best uncapped candidate of a sex (for re-seeding), or None.
+    let best_uncapped = |want: bool, at_upper: &[usize]| -> Option<usize> {
+        let mut bj = None;
+        let mut bb = f64::NEG_INFINITY;
+        for (j, &mj) in male.iter().enumerate() {
+            if mj == want && !at_upper.contains(&j) && b[j] > bb {
+                bb = b[j];
+                bj = Some(j);
+            }
+        }
+        bj
+    };
+
+    for it in 0..max_iter {
+        let g_ff = build_gss(z, s, ridge, &free);
+        let b_f: Vec<f64> = free.iter().map(|&i| b[i]).collect();
+        let male_f: Vec<bool> = free.iter().map(|&i| male[i]).collect();
+        let (o, cuu, d_m, d_f) = if at_upper.is_empty() {
+            (vec![0.0; free.len()], 0.0, 0.5, 0.5)
+        } else {
+            let mut u_full = vec![0.0; n];
+            for &j in &at_upper {
+                u_full[j] = caps[j];
+            }
+            let gc_u = g_matvec(z, s, ridge, &u_full);
+            products += 1;
+            let o: Vec<f64> = free.iter().map(|&i| gc_u[i]).collect();
+            let cuu: f64 = at_upper.iter().map(|&j| caps[j] * gc_u[j]).sum();
+            let um: f64 = at_upper
+                .iter()
+                .filter(|&&j| male[j])
+                .map(|&j| caps[j])
+                .sum();
+            let uf: f64 = at_upper
+                .iter()
+                .filter(|&&j| !male[j])
+                .map(|&j| caps[j])
+                .sum();
+            (o, cuu, 0.5 - um, 0.5 - uf)
+        };
+
+        match closed_form_sexed_capped(&g_ff, &b_f, &male_f, &o, cuu, d_m, d_f, k) {
+            None => {
+                let gc = g_matvec(z, s, ridge, &c_cur);
+                products += 1;
+                let mut best_j = None;
+                let mut best_val = f64::INFINITY;
+                for (j, &gj) in gc.iter().enumerate() {
+                    if !free.contains(&j) && !at_upper.contains(&j) && !dropped[j] && gj < best_val
+                    {
+                        best_val = gj;
+                        best_j = Some(j);
+                    }
+                }
+                match best_j {
+                    Some(j) => free.push(j),
+                    None => break,
+                }
+            }
+            Some((cf, mu_m, mu_f, lam)) => {
+                let mut keep = Vec::with_capacity(free.len());
+                let mut changed = false;
+                for idx in 0..free.len() {
+                    let i = free[idx];
+                    if cf[idx] > caps[i] + tol {
+                        at_upper.push(i);
+                        changed = true;
+                    } else if cf[idx] < tol {
+                        dropped[i] = true;
+                        changed = true;
+                    } else {
+                        keep.push(i);
+                    }
+                }
+                if changed {
+                    free = keep;
+                    if !free.iter().any(|&i| male[i]) {
+                        match best_uncapped(true, &at_upper) {
+                            Some(j) => {
+                                dropped[j] = false;
+                                free.push(j);
+                            }
+                            None => break,
+                        }
+                    }
+                    if !free.iter().any(|&i| !male[i]) {
+                        match best_uncapped(false, &at_upper) {
+                            Some(j) => {
+                                dropped[j] = false;
+                                free.push(j);
+                            }
+                            None => break,
+                        }
+                    }
+                    continue;
+                }
+
+                let mut c = vec![0.0; n];
+                for idx in 0..free.len() {
+                    c[free[idx]] = cf[idx];
+                }
+                for &j in &at_upper {
+                    c[j] = caps[j];
+                }
+                c_cur = c;
+                let gc = g_matvec(z, s, ridge, &c_cur);
+                products += 1;
+
+                let mut best_j = None;
+                let mut best_score = tol;
+                let mut release = false;
+                for (j, &gj) in gc.iter().enumerate() {
+                    let mu = if male[j] { mu_m } else { mu_f };
+                    let r = b[j] - mu - 2.0 * lam * gj;
+                    if !free.contains(&j) && !at_upper.contains(&j) {
+                        if r > best_score {
+                            best_score = r;
+                            best_j = Some(j);
+                            release = false;
+                        }
+                    } else if at_upper.contains(&j) && -r > best_score {
+                        best_score = -r;
+                        best_j = Some(j);
+                        release = true;
+                    }
+                }
+                match best_j {
+                    None => {
+                        let mut sorted = free.clone();
+                        sorted.extend_from_slice(&at_upper);
+                        sorted.sort_unstable();
+                        let gain = b.iter().zip(&c_cur).map(|(b, c)| b * c).sum();
+                        let quad = c_cur.iter().zip(&gc).map(|(c, g)| c * g).sum();
+                        return SupportFirstOutcome {
+                            c: c_cur,
+                            support: sorted,
+                            iterations: it + 1,
+                            products,
+                            gain,
+                            quad,
+                            status: SfStatus::Solved,
+                        };
+                    }
+                    Some(j) => {
+                        dropped.iter_mut().for_each(|d| *d = false);
+                        if release {
+                            at_upper.retain(|&x| x != j);
+                        }
+                        free.push(j);
+                    }
+                }
+            }
+        }
+    }
+
+    let gc = g_matvec(z, s, ridge, &c_cur);
+    let mut sorted: Vec<usize> = (0..n).filter(|&i| c_cur[i] > tol).collect();
+    sorted.sort_unstable();
+    SupportFirstOutcome {
+        gain: b.iter().zip(&c_cur).map(|(b, c)| b * c).sum(),
+        quad: c_cur.iter().zip(&gc).map(|(c, g)| c * g).sum(),
+        c: c_cur,
+        support: sorted,
+        iterations: max_iter,
+        products: products + 1,
+        status: SfStatus::MaxIter,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -995,6 +1317,68 @@ mod tests {
         assert!(
             (sf.c.iter().sum::<f64>() - 1.0).abs() < 1e-6,
             "off the simplex"
+        );
+    }
+
+    #[test]
+    fn sexed_capped_reduces_to_unbounded() {
+        // Caps so loose they never bind ⇒ the capped sexed solve matches the
+        // unbounded sexed solve (itself cross-checked against Clarabel elsewhere).
+        let d = datagen::generate(60, 2000, 7);
+        let ridge = 1e-5;
+        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
+        let k = 0.5 * mean_diag;
+        let male: Vec<bool> = (0..d.n).map(|i| i % 2 == 0).collect();
+        let caps = vec![1.0_f64; d.n];
+
+        let unb = solve_sexed(&d.z, d.s, ridge, &d.b, &male, k, 1000, 1e-7);
+        let cap = solve_sexed_capped(&d.z, d.s, ridge, &d.b, &male, &caps, k, 1000, 1e-7);
+        assert_eq!(unb.status, SfStatus::Solved);
+        assert_eq!(cap.status, SfStatus::Solved);
+        assert!(
+            (unb.gain - cap.gain).abs() < 1e-7,
+            "gain {} vs {}",
+            unb.gain,
+            cap.gain
+        );
+        for i in 0..d.n {
+            assert!((unb.c[i] - cap.c[i]).abs() < 1e-6, "c[{i}]");
+        }
+    }
+
+    #[test]
+    fn sexed_capped_feasible_and_optimal() {
+        // Binding caps: the result is Solved, within 0 ≤ c ≤ u, split ½/½ by sex,
+        // kinship-feasible, and no better than the unbounded optimum.
+        let d = datagen::generate(60, 2000, 7);
+        let ridge = 1e-5;
+        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
+        let k = 0.5 * mean_diag;
+        let male: Vec<bool> = (0..d.n).map(|i| i % 2 == 0).collect();
+        let caps = vec![0.05_f64; d.n]; // each sex (½) needs ≥ 10 contributors
+
+        let sf = solve_sexed_capped(&d.z, d.s, ridge, &d.b, &male, &caps, k, 4000, 1e-7);
+        assert_eq!(sf.status, SfStatus::Solved);
+        assert!(sf.quad <= k + 1e-6, "kinship {} > k {}", sf.quad, k);
+        assert!(sf.c.iter().all(|&c| c >= -1e-7));
+        assert!(
+            sf.c.iter().zip(&caps).all(|(&c, &u)| c <= u + 1e-6),
+            "upper bound violated"
+        );
+        let sum_m: f64 = (0..d.n).filter(|&i| male[i]).map(|i| sf.c[i]).sum();
+        let sum_f: f64 = (0..d.n).filter(|&i| !male[i]).map(|i| sf.c[i]).sum();
+        assert!(
+            (sum_m - 0.5).abs() < 1e-6 && (sum_f - 0.5).abs() < 1e-6,
+            "sex split"
+        );
+        let unb = solve_sexed(&d.z, d.s, ridge, &d.b, &male, k, 2000, 1e-7);
+        assert!(
+            sf.gain <= unb.gain + 1e-9,
+            "capped gain {} exceeds unbounded {}",
+            sf.gain,
+            unb.gain
         );
     }
 }
