@@ -1,13 +1,24 @@
-//! Support-first exact OCS solver (Rust port of the `research/` prototype).
+//! Support-first exact OCS solver.
 //!
 //! The OCS optimum activates only a tiny support `S`. For a fixed support the
-//! problem `max b_Sᵀc_S s.t. 1ᵀc_S=1, c_Sᵀ G_SS c_S = k` is "maximise a linear
-//! form over an ellipsoid", whose multiplier `μ` solves a scalar quadratic — so
-//! each restricted solve is two Cholesky back-substitutions on the small `G_SS`,
-//! no iteration. The whole cost is identifying `S`, done by column generation:
-//! add the best reduced-cost candidate, or — if the support cannot yet satisfy
-//! the kinship bound — the least related one. Every full `G·c` is formed
-//! matrix-free as `ridge·c + Z(Zᵀc)/s`; `G` is never materialised.
+//! problem `max b_Sᵀc_S s.t. A_S c_S = d, c_Sᵀ G_SS c_S = k` is "maximise a
+//! linear form over an ellipsoid", whose multiplier `μ` solves a scalar
+//! quadratic — so each restricted solve is two Cholesky back-substitutions on
+//! the small `G_SS`, no iteration. The whole cost is identifying `S`, done by
+//! column generation: add the best reduced-cost candidate, or — if the support
+//! cannot yet satisfy the kinship bound — the least related one. Every full
+//! `G·c` is formed matrix-free as `ridge·c + Z(Zᵀc)/s`; `G` is never
+//! materialised.
+//!
+//! Four entry points share this machinery, differing only in the equality block
+//! `A_S c_S = d` and whether per-candidate caps are active:
+//! - [`solve`] — simplex budget `1ᵀc = 1`;
+//! - [`solve_sexed`] — sexed budget `Σ_males = Σ_females = ½` (two equality
+//!   rows, the true OCS), eliminated through a `2×2` reduction;
+//! - [`solve_capped`] / [`solve_sexed_capped`] — the same two with per-candidate
+//!   upper bounds `c ≤ u`: a candidate at its cap moves to an *upper* set and
+//!   re-enters the restricted solve as a constant offset, preserving the closed
+//!   form.
 //!
 //! `G` here means the *ridged* `G+εI` that Clarabel's cone actually enforces, so
 //! the two solvers are compared on the same constraint.

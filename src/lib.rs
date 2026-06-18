@@ -1,13 +1,17 @@
-//! Optimum Contribution Selection (OCS) as a second-order cone program, solved
-//! with the Clarabel interior-point method.
+//! Exact, matrix-free Optimum Contribution Selection (OCS) at genomic scale.
 //!
-//! This crate is a **go/no-go spike**. It exists to measure whether Clarabel
-//! solves genomic-scale OCS reliably and quickly, given that the conic block it
-//! must factor is effectively dense. See `README.md` for the formulation and
-//! `REPORT.md` for the verdict with numbers.
+//! The contribution is [`support_first`]: an active-set / column-generation solver
+//! that exploits the tiny support of the OCS optimum, solves each fixed support in
+//! closed form, and never forms the dense `n×n` relationship matrix (matrix-free
+//! `G·c` from the genotype matrix `Z`). It reaches the same optimum as a conic
+//! interior-point solver orders of magnitude faster; the sexed constraints
+//! (`Σ_males = Σ_females = ½`) and per-candidate caps `c ≤ u` are supported.
 //!
-//! Pipeline: [`datagen`] → [`grm`] (Route A factor) → [`socp`] (cone assembly)
-//! → [`solve`] (Clarabel) → [`report`] (feasibility + sweeps + verdict).
+//! The project began as a go/no-go on the [Clarabel](https://clarabel.org) conic
+//! solver (verdict **GO**, see `REPORT.md`); Clarabel is retained as an independent
+//! cross-check oracle — [`socp`] assembles the cone, [`solve`] runs it.
+//!
+//! Pipeline: [`datagen`] → [`grm`] → {[`support_first`] | [`socp`] + [`solve`]} → [`report`].
 
 pub mod datagen;
 pub mod error;

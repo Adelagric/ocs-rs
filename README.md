@@ -20,16 +20,20 @@ validated on real genomic panels.
 On real marker panels (CIMMYT wheat n=599, PIC pig n=3534, heterogeneous-stock
 mouse n=1814 with real sex):
 
-- **Exact.** Agrees with a conic interior-point optimum to `1e-8`, and *saturates*
-  the kinship bound that optiSel's IPM leaves slightly slack — at least as
-  accurate as the domain tool, exact where it is merely close. Cross-language
+- **Exact.** Agrees with a conic interior-point optimum to `1e-8`. At matched
+  realised coancestry it agrees with optiSel; where optiSel's IPM halts just inside
+  the constraint, support-first reaches the boundary — the same optimum, its small
+  edge being the diversity budget left unspent, not a different solution. At least
+  as accurate as the domain tool, exact where it is merely close. Cross-language
   agreement with a NumPy reference: `1.5e-14`.
 - **vs optiSel** (the standard exact tool): **90×–2280×** faster, same optimum
   (mouse: 0.008 s vs 6.96 s).
 - **vs Clarabel** (a generic conic solver): up to **37090×** at n=10000
   (26 minutes → 43 ms).
-- **vs AlphaMate** (the heuristic): strictly higher gain at *every* matched
-  coancestry, at a small fraction of the run time.
+- **vs AlphaMate** (a heuristic for the *distinct* discrete-mating problem): on the
+  continuous relaxation the two share, scored at matched coancestry, the exact
+  optimum is no worse — a consistency check, not a head-to-head — at a small
+  fraction of the run time.
 - **Scales.** The optimal support stays ~15 as n grows to 40000, while the dense
   `G` every other solver forms reaches **11.9 GiB** (past laptop memory) — and
   merely *building* it costs more than the whole support-first solve — whereas

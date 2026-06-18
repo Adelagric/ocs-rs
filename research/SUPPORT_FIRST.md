@@ -1,7 +1,11 @@
 # Support-first OCS — research note
 
-Status: **prototype, synthetic data only.** A promising lead, not a validated
-result. Numbers below are reproducible with `python3 research/support_first.py`.
+Status: **validated and written up — superseded by**
+[`MANUSCRIPT.md`](MANUSCRIPT.md), which carries the final numbers, the `c ≤ u`
+extension, and the Rust implementation. This note is kept as the development
+log: the lead, the reduction, and how it was confirmed (synthetic → real wheat,
+pig, and mouse panels). Numbers below are reproducible with
+`python3 research/support_first.py`.
 
 ## Why
 
@@ -138,8 +142,9 @@ time** (675 of 768 iterations at n=1000). Adding them **in chunks** (double the
 support until feasible) cuts iterations ~30× with the *identical* optimum.
 
 After that fix, support-first solves the same problem as optiSel, reaching the
-**exact** optimum (it saturates the kinship bound that optiSel's IPM leaves
-slightly slack), at:
+**exact** optimum on the kinship boundary where optiSel's IPM halts just inside it
+(equal gain at matched realised coancestry; the edge is unspent diversity budget),
+at:
 
 | dataset | n | support-first | optiSel | speedup |
 |---|---|---|---|---|
@@ -170,7 +175,7 @@ corrected, the advantage is real, exact, and grows with scale.
 | Gencont2 (Pong-Wong) | yes | **pedigree sparse** | Newton-λ + Gauss-Seidel, matrix-free | not the dense genomic `G`; first-order on c |
 | optiSel `cccp` / this crate's Clarabel | yes | genomic dense | SOCP + IPM | O(n³) |
 | AlphaMate | **no** (heuristic) | any | differential evolution | no optimality |
-| **support-first (here)** | yes | **genomic dense** | **solution sparsity + factored Z + closed form** | validated on synthetic only |
+| **support-first (here)** | yes | **genomic dense** | **solution sparsity + factored Z + closed form** | single quadratic constraint, continuous c |
 
 The novelty is not "use a cone" (optiSel does), "matrix-free Lagrangian"
 (Gencont2 does on pedigree), or "scale via heuristic" (AlphaMate does). It is the
@@ -191,11 +196,14 @@ governed by `|S|` rather than `n³`.
 3. **`|S|` on broad real populations / tight k.** On real pig data `|S|`≈28 (huge
    speedup); a conservation-grade tight `k` would enlarge `|S|` and shrink the
    factor — still bounded by structure, but to be mapped.
-4. **Rust port of the SEX version.** The sex variant (two equalities + chunked
-   feasibility) lives only in the numpy prototype; the Rust crate has the
-   pool-unique version. Porting it would make the optiSel comparison
-   same-language, not just same-machine.
-5. **AlphaMate** (the evolutionary heuristic) not yet compared.
+4. **Rust port of the sexed version — cleared.** [`src/support_first.rs`](../src/support_first.rs)
+   carries the sexed solver (`solve_sexed`, two equality rows) and the `c ≤ u`
+   variants (`solve_capped` / `solve_sexed_capped`), all KKT-certified and
+   cross-checked against Clarabel.
+5. **AlphaMate — cleared.** AlphaMate targets a *distinct* problem (discrete mate
+   allocation); on the continuous relaxation the two share, scored at matched
+   coancestry, support-first's exact optimum is no worse — a consistency check, not
+   a duel — at a fraction of the run time (see [`MANUSCRIPT.md`](MANUSCRIPT.md)).
 
 ## References
 

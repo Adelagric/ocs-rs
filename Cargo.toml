@@ -2,12 +2,12 @@
 name = "ocs_rs"
 version = "0.1.0"
 edition = "2024"
-description = "Go/no-go spike: solving genomic-scale Optimum Contribution Selection as a second-order cone program with the Clarabel interior-point solver."
+description = "Exact, matrix-free support-first solver for genomic Optimum Contribution Selection (OCS)."
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-# Conic interior-point solver under evaluation. This crate exists to decide
-# whether its sparse IPM copes with the near-dense conic block OCS produces.
+# Conic interior-point solver, kept as an independent cross-check oracle for the
+# support-first optimum (and this crate's original go/no-go subject).
 clarabel = "=0.11.1"
 # Pure-Rust dense linear algebra: VanRaden GRM build (GEMM) and Cholesky.
 # Only the dense `linalg` path is needed; the sparse/npy/rand features are

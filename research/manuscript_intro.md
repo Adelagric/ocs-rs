@@ -80,11 +80,14 @@ at genomic n, is the combination rather than any one part.
 
 On real data — a CIMMYT wheat panel (n = 599), a PIC pig (n = 3534, 52k SNP) and a
 heterogeneous-stock mouse panel (n = 1814, with real sex) — support-first reaches
-the exact optimum, agreeing with the conic optimum to 1e-8 and saturating the
-kinship bound that the interior-point methods leave slightly slack, while running
-90×–2280× faster, and ~37000× faster than a general conic interior-point solver at
-n = 10000. Against AlphaMate it attains strictly higher gain at every matched
-coancestry, at a small fraction of the run time. Across synthetic populations the
+the exact optimum, agreeing with the conic optimum to 1e-8; at matched realised
+coancestry it agrees with the interior-point methods, and where they halt just
+inside the constraint support-first reaches the boundary, so its small edge is the
+diversity budget they leave unspent rather than a different optimum — all while
+running 90×–2280× faster, and ~37000× faster than a general conic interior-point
+solver at n = 10000. Against AlphaMate, a heuristic for the distinct problem of
+discrete mate allocation, the exact optimum is no worse at matched coancestry on
+the continuous relaxation the two share, at a small fraction of the run time. Across synthetic populations the
 optimal support stays 14–19 as n grows from
 1000 to 40000, while the dense **G** the alternatives must form reaches 11.9 GiB
 — a 40× larger footprint than **Z**, past the working memory of an 8–16 GB laptop

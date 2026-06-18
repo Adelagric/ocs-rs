@@ -51,8 +51,9 @@ wheat panel (n=599), a PIC pig (n=3534, 52k SNP), and a heterogeneous-stock mous
 boundary — agreeing with a conic interior-point solver to 1e-8, which itself stops just short
 of that boundary — while running 90×–2280× faster (0.008 s vs 6.96 s on the sexed mouse
 instance) and ~37000× faster than a general conic solver (Clarabel) at n=10000. Against
-AlphaMate, on the continuous relaxation the two share, the exact optimum is no worse at every
-matched coancestry, at a fraction of the run time; per-candidate contribution caps
+AlphaMate — a heuristic for the distinct problem of discrete mate allocation — the exact
+optimum is no worse at matched coancestry on the continuous relaxation the two share, at a
+fraction of the run time; per-candidate contribution caps
 (0 ≤ c ≤ u) are supported. Support-first makes exact, reproducible OCS practical at genomic
 scale on a laptop.
 
@@ -77,7 +78,7 @@ scale on a laptop.
 - **2.7 Data & baselines.** Datasets (provenance, n, m, trait used as b, sex availability). Baselines: optiSel (exact reference), Clarabel (conic cross-check), AlphaMate (heuristic). Hardware + exact commands (BENCHES.md discipline).
 
 ### 3. Results
-- **3.1 Exactness.** support-first vs optiSel and vs Clarabel: max |Δc|, Δgain, Δcoancestry across k. → Δgain ≈ 1e-8 vs the conic optimum; cross-language vs the numpy prototype 1.5e-14; saturates the kinship bound optiSel's IPM leaves slack.
+- **3.1 Exactness.** support-first vs optiSel and vs Clarabel: max |Δc|, Δgain, Δcoancestry across k. → Δgain ≈ 1e-8 vs the conic optimum; cross-language vs the numpy prototype 1.5e-14; equal gain at matched coancestry, with support-first on the boundary where optiSel's IPM stops interior.
 - **3.2 Speed & scaling.** vs Clarabel to n=10000 (37090×: 1579 s → 0.043 s); vs optiSel on real data (90×–2280×).
 - **3.3 Real-data benchmark table** (the headline — see SUPPORT_FIRST.md for current numbers).
 - **3.4 vs AlphaMate.** Equal-coancestry comparison: take AlphaMate's contribution vector, score gain and cᵀKc in our metric, compare support-first at the same coancestry; report time (AlphaMate self-reported CPU vs support-first wall). Result (mouse): support-first attains higher gain at all three frontier points — Δgain +0.004 at the 45° tradeoff, +0.018 / +0.080 at the higher / lower coancestry corners; AlphaMate's frontier cost 882 s CPU vs ≤1.1 s per point exact. Also report robustness: AlphaMate required 6 configurations and 3 distinct work-arounds (matings<n; full parent set to avoid a setup segfault; positive-shifted criterion to avoid a value/max sign inversion) to run on a real genomic instance, whereas support-first and optiSel ran unmodified.
