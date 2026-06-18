@@ -45,7 +45,7 @@ diversity).
 ```
 maximize    bᵀc                  b = genomic estimated breeding values (GEBV)
 subject to  A c = d              budget: Σcᵢ = 1, or sexed Σ_males = Σ_females = ½
-            c ≥ 0
+            0 ≤ c ≤ u            optional per-candidate contribution cap (u = 1 ⇒ off)
             cᵀ G c ≤ k           G = VanRaden genomic relationship matrix, k = kinship bound
 ```
 
@@ -64,10 +64,14 @@ equality rows.
   `q×q` reduction `P = A_S G_S⁻¹ A_Sᵀ` (q ≤ 2) and read the multiplier off a
   scalar quadratic — one Cholesky, no inner iteration.
 - **Matrix-free.** `Gc = εc + Z(Zᵀc)/s`; the dense `n×n` `G` is never formed.
+- **Per-candidate caps `c ≤ u`.** The same active set absorbs upper bounds with no
+  loss of the closed form — a candidate at its cap moves to an *upper* set and
+  enters the restricted solve as a constant offset; verified against Clarabel on
+  the matching `c ≤ u` cone program.
 
 Derivation in [`research/MANUSCRIPT.md`](research/MANUSCRIPT.md) (Methods);
-implementation in [`src/support_first.rs`](src/support_first.rs)
-(`solve` simplex, `solve_sexed` sexed).
+implementation in [`src/support_first.rs`](src/support_first.rs) (`solve` /
+`solve_sexed`, and `solve_capped` / `solve_sexed_capped` for `c ≤ u`).
 
 ## Running
 
@@ -126,9 +130,11 @@ exploits exactly that. Clarabel is kept as an independent cross-check oracle.
 on the public panels; a genuine recorded sex exists only for the mouse panel
 (arbitrary balanced split elsewhere); the optiSel head-to-head times a NumPy
 prototype against R (the gap is algorithmic, not language); the support bound is
-empirical, not proven; and the solver handles a single quadratic constraint and
-continuous contributions (no integer mate allocation). These are stated in the
-manuscript's Discussion.
+empirical here, though an extreme-point / low-rank argument sketches a route to a
+theorem ([`research/support_bound_sketch.md`](research/support_bound_sketch.md));
+and the solver handles a single quadratic constraint and continuous contributions —
+per-candidate caps `c ≤ u` are supported, but multiple quadratic constraints and
+integer mate allocation are not. These are stated in the manuscript's Discussion.
 
 ## Constraints honoured
 
