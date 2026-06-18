@@ -17,3 +17,6 @@
 # Built manuscript artifacts (regenerate: python3 research/build_pdf.py + weasyprint)
 /research/MANUSCRIPT.html
 /research/MANUSCRIPT.pdf
+
+# Private outreach draft — kept local, never published
+/research/contact_inrae.md
