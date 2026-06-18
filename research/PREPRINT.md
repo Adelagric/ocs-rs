@@ -43,21 +43,18 @@ and the only difficulty is combinatorial — which candidates are free versus pi
 bound (zero, or a per-candidate cap). Support-first grows the
 support by an active-set / column-generation rule and solves each fixed-support subproblem
 — maximise a linear objective over an ellipsoid intersected with the affine sum (and sex)
-constraints — in closed form, with no inner iterative solver. It is **matrix-free**: it
-never forms or stores the dense n×n G, computing G·c from the raw centred genotype matrix Z
-— the memory and large-n enabler — while the speed advantage over existing solvers comes
-from the **tiny active set** (a handful of cheap iterations instead of a full conic
-interior-point solve), not from the matrix-free product itself. On real data — a CIMMYT
+constraints — in closed form, with no inner iterative solver; the kinship products G·c are
+formed matrix-free from the genotype matrix Z, the enabler that lets it never store the dense
+n×n G (the order-of-magnitude speed is the tiny active set, not the matrix-free product). On real data — a CIMMYT
 wheat panel (n=599), a PIC pig (n=3534, 52k SNP), and a heterogeneous-stock mouse panel
 (n=1814, with real sex) — support-first returns the exact optimum on the kinship
 boundary — agreeing with a conic interior-point solver to 1e-8, which itself stops just short
 of that boundary — while running 90×–2280× faster (0.008 s vs 6.96 s on the sexed mouse
 instance) and ~37000× faster than a general conic solver (Clarabel) at n=10000. Against
-AlphaMate, on the continuous relaxation the two share, the exact optimum has higher gain at
-every matched coancestry (mouse: Δgain +0.004 at the 45° tradeoff, larger elsewhere) at a
-small fraction of the run time (882 s CPU for the frontier vs ≤1.1 s per point); AlphaMate's
-discrete mate allocation is a separate, out-of-scope problem.
-Support-first makes exact, reproducible OCS practical at genomic scale on a laptop.
+AlphaMate, on the continuous relaxation the two share, the exact optimum is no worse at every
+matched coancestry, at a fraction of the run time; per-candidate contribution caps
+(0 ≤ c ≤ u) are supported. Support-first makes exact, reproducible OCS practical at genomic
+scale on a laptop.
 
 ---
 
