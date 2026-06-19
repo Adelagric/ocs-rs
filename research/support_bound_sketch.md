@@ -97,6 +97,20 @@ and b's alignment set the rest — no single scalar pins |S|, consistent with th
 sweep. (A cross-check falls out: simplex |S| = 25 vs optiSel's sexed 26 on the real wheat K
 — the support is robust across the formulation.)
 
+**Isolating b's alignment** (`bound_balign.py`): with G *and* the cap held fixed, sweeping
+only how the objective b aligns with G's eigenbasis settles which factor moves |S| — and the
+relation is **inverse**. Putting b on the single dominant eigenvector (the most
+coancestry-expensive direction, λ₁) forces a large support (mean |S| ≈ 146 of n = 800);
+spreading b across many eigendirections, including cheap low-λ ones, collapses it to ≈ 4–5.
+Mechanism: gain sought in an expensive direction must be diluted over many candidates to
+respect the cap, whereas an objective weighted toward cheap directions concentrates. So the
+support is driven by **b's projection onto the spectrum — alignment with the top (expensive)
+eigenspace inflates it** — not by G's effective rank alone. This is exactly what the
+spectrum-only proxies (rank, participation ratio) miss, and it explains how two panels of
+very different effective rank (wheat 28, mouse 92) can share |S| ≈ 26: what matters is where
+each b sits in its own spectrum. A predictive bound must therefore couple b and Λ — the
+cost-adjusted object G^{-1/2}b is the natural candidate.
+
 ## The growth half (cap → 0)
 
 As k → 0 the optimum approaches minimum coancestry and must spread mass to drive cᵀGc
@@ -131,5 +145,5 @@ grows monotonically, as observed (mouse: 19 → 61 → 133 → 189 → 473 → ~
 
 *Numerical evidence: `research/bound_validation.py` (blocks 1–6: solver vs scipy, the
 ε = 0 bound sweep, n-independence, the effective-rank behaviour, the ridge sweep, and a
-spectral-decay sweep) and `research/bound_real.py` (the wheat and mouse GRMs above, after
-the `research/repro/*_export.R` exports).*
+spectral-decay sweep), `research/bound_real.py` (wheat and mouse GRMs, after the
+`research/repro/*_export.R` exports), and `research/bound_balign.py` (the b-alignment sweep).*
