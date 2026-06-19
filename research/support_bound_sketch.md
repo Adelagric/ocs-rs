@@ -111,6 +111,17 @@ very different effective rank (wheat 28, mouse 92) can share |S| ≈ 26: what ma
 each b sits in its own spectrum. A predictive bound must therefore couple b and Λ — the
 cost-adjusted object G^{-1/2}b is the natural candidate.
 
+**Is there a single predictor?** (`bound_predictor.py`) Tested across a sweep varying both
+the spectrum and b's alignment, plus the real panels: **no single scalar is clean.** The
+cost-adjusted PR((G⁻¹b)₊) leads on synthetic (Pearson 0.77) but collapses on real data; the
+directional cost b'Gb/b'b is the best single *monotone* indicator (Spearman 0.68, right sign,
+and qualitatively right on real — mouse, b on cheap directions, |S| = 17; wheat, b costlier,
+|S| = 25) yet incomplete: at *equal* b'Gb a steeper spectrum inflates |S| dramatically
+(flat-spectrum, b = u₁: |S| = 7; steep-spectrum, b = u₁: |S| = 413). So the support is
+**irreducibly joint** in (b's alignment, the spectral gap, the cap) — the bound is a function
+of that triple, not of any one scalar. That is the precise open statement, and a sharper,
+truer one than "effective rank."
+
 ## The growth half (cap → 0)
 
 As k → 0 the optimum approaches minimum coancestry and must spread mass to drive cᵀGc
@@ -146,4 +157,5 @@ grows monotonically, as observed (mouse: 19 → 61 → 133 → 189 → 473 → ~
 *Numerical evidence: `research/bound_validation.py` (blocks 1–6: solver vs scipy, the
 ε = 0 bound sweep, n-independence, the effective-rank behaviour, the ridge sweep, and a
 spectral-decay sweep), `research/bound_real.py` (wheat and mouse GRMs, after the
-`research/repro/*_export.R` exports), and `research/bound_balign.py` (the b-alignment sweep).*
+`research/repro/*_export.R` exports), `research/bound_balign.py` (the b-alignment sweep), and
+`research/bound_predictor.py` (the cross-regime predictor search).*
