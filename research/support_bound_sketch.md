@@ -127,6 +127,14 @@ ratio differs ~100× (wheat 66, mouse 0.66) yet |S| is 25 vs 17. So the support 
 closed-form scalar law; it appears to need the full coancestry-vs-support profile (the whole
 spectrum and b together), and the clean, provable statement stays the ε = 0 bound.
 
+Reframing to the curve does not rescue universality either (`bound_curve.py`): |S|(k) is a
+clean *per-instance* power law, |S| ~ k^{−α} (R² ≈ 0.9–0.98 where the support is well
+resolved), but the exponent α is itself joint — ≈ 1 on both real panels, yet ranging 0.5–1.7
+across synthetic spectra and alignments. So no level — value, scalar, two-parameter ratio, or
+curve exponent — reduces the ridged support to a universal form. The provable statement is
+the ε = 0 bound; the ridged characterisation needs the full (spectrum, b, k) geometry, which
+is the honest open problem to hand to a quant-gen / optimisation collaborator.
+
 ## The growth half (cap → 0)
 
 As k → 0 the optimum approaches minimum coancestry and must spread mass to drive cᵀGc
@@ -163,5 +171,5 @@ grows monotonically, as observed (mouse: 19 → 61 → 133 → 189 → 473 → ~
 ε = 0 bound sweep, n-independence, the effective-rank behaviour, the ridge sweep, and a
 spectral-decay sweep), `research/bound_real.py` (wheat and mouse GRMs, after the
 `research/repro/*_export.R` exports), `research/bound_balign.py` (the b-alignment sweep), `research/bound_predictor.py`
-(the cross-regime predictor search), and `research/bound_lawfit.py` (the dimensionless
-law fit).*
+(the cross-regime predictor search), `research/bound_lawfit.py` (the dimensionless
+law fit), and `research/bound_curve.py` (the per-instance |S|(k) power-law fit).*
