@@ -1,0 +1,258 @@
+\documentclass[11pt]{article}
+
+\usepackage{geometry}
+\geometry{a4paper, margin=2.3cm}
+
+\usepackage{fontspec}
+\usepackage{amsmath}
+\usepackage{unicode-math}
+% Fonts: Latin Modern (fontspec / unicode-math defaults) — reliably bundled with tectonic.
+
+\usepackage{polyglossia}
+\setdefaultlanguage{french}
+
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\graphicspath{{./}}
+\usepackage{caption}
+\captionsetup{font=small, labelfont=bf}
+\usepackage[dvipsnames]{xcolor}
+\usepackage[colorlinks=true, linkcolor=RoyalBlue, urlcolor=RoyalBlue, citecolor=RoyalBlue]{hyperref}
+\usepackage{enumitem}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.45em}
+\setlist{leftmargin=1.4em}
+\setlength{\emergencystretch}{3em}
+
+\newcommand{\tp}{^{\top}}
+\newcommand{\bc}{\mathbf{c}}
+\newcommand{\bb}{\mathbf{b}}
+\newcommand{\bG}{\mathbf{G}}
+\newcommand{\bZ}{\mathbf{Z}}
+\newcommand{\bA}{\mathbf{A}}
+\newcommand{\bd}{\mathbf{d}}
+\newcommand{\bu}{\mathbf{u}}
+
+\title{\bfseries Sélection à contribution optimale exacte en quelques millisecondes :\\ un solveur « support-first », sans matrice, validé contre optiSel et AlphaMate sur données génomiques réelles}
+\author{\textbf{Adel Kaleche}\\[2pt] \small\itshape Affiliation à compléter. \\ \small\itshape Version française ; le manuscrit de référence est en anglais.}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+La sélection à contribution optimale (OCS, \emph{optimum contribution selection}) --- maximiser le gain génétique sous une borne sur la coancestrie de la génération suivante --- est l'outil central pour arbitrer entre gain et perte de diversité dans les programmes de sélection. Son goulot d'étranglement computationnel est la matrice de parenté qu'elle contraint : à l'échelle génomique, cette matrice est dense et $n\times n$, coûtant $O(n^2 m)$ à construire et $O(n^2)$ à stocker, de sorte que les outils établis --- exact (optiSel) et heuristique (AlphaMate) --- heurtent un mur mémoire précisément quand le nombre de candidats croît. Nous présentons \textbf{support-first}, un solveur exact qui ne la forme jamais : sur un ordinateur portable, il résout une instance ($n=40000$) dont la matrice dense (11,9~Gio) dépasse ce que les outils établis peuvent allouer, le support optimal se maintenant autour de quinze individus --- accomplissant ce qui est autrement infaisable, pas seulement plus vite. Il exploite deux faits structurels de l'OCS : le vecteur de contributions optimal a un support minuscule (typiquement 2 à 50 sur $n$), et la seule difficulté est combinatoire --- quels candidats sont libres versus fixés à une borne (zéro, ou un plafond par candidat). Support-first fait croître le support par une règle d'ensemble actif / génération de colonnes et résout chaque sous-problème à support fixé --- maximiser un objectif linéaire sur un ellipsoïde intersecté avec les contraintes affines de somme (et de sexe) --- en forme fermée, sans solveur itératif interne ; les produits de parenté $\bG\bc$ sont formés sans matrice à partir de la matrice de génotypes $\bZ$, ce qui permet de ne jamais stocker la matrice dense $n\times n$ $\bG$ (l'accélération d'un ordre de grandeur vient du petit ensemble actif, pas du produit sans matrice). Sur données réelles --- un panel de blé CIMMYT ($n=599$), un panel de porc PIC ($n=3534$, 52k SNP) et un panel de souris en population hétérogène ($n=1814$, avec sexe réel) --- support-first atteint l'optimum exact sur la frontière de coancestrie --- en accord à $10^{-8}$ près avec un solveur conique à point intérieur, lequel s'arrête juste en deçà de cette frontière --- tout en s'exécutant 90$\times$ à 2280$\times$ plus vite (0,008~s contre 6,96~s sur l'instance souris sexuée) et ${\sim}37000\times$ plus vite qu'un solveur conique généraliste (Clarabel) à $n=10000$. Face à AlphaMate --- une heuristique pour le problème distinct de l'allocation discrète des accouplements --- l'optimum exact n'est pas moins bon, à coancestrie appariée, sur la relaxation continue commune aux deux méthodes, en une fraction du temps de calcul ; les plafonds de contribution par candidat ($0\le\bc\le\bu$) sont gérés. Support-first rend l'OCS exacte et reproductible praticable à l'échelle génomique sur un ordinateur portable.
+\end{abstract}
+
+\section{Introduction}
+
+L'amélioration génétique du bétail et des plantes doit tenir deux objectifs en tension : maximiser le mérite génétique de la génération suivante, et conserver la diversité génétique dont l'érosion entraîne la dépression de consanguinité et ferme la porte à la réponse future à la sélection. La sélection à contribution optimale (OCS ; Meuwissen 1997) explicite ce compromis. Étant donné la valeur génétique estimée de chaque candidat et la matrice de parenté entre candidats, l'OCS choisit les contributions génétiques proportionnelles $\bc$ qui maximisent le gain espéré $\bb\tp\bc$ sous une borne sur la coancestrie moyenne de la descendance, $\bc\tp\bG\bc\le k$, les contributions étant non négatives et de somme un --- et, dans tout schéma d'accouplement réel, réparties de sorte que pères et mères fournissent chacun la moitié. L'OCS est le cadre de fait pour gérer la diversité, tant en sélection commerciale qu'en programmes de conservation, et la matrice de parenté génomique (VanRaden 2008) a largement remplacé son prédécesseur fondé sur le pedigree comme $\bG$ qu'elle contraint.
+
+Avec des données génomiques, il s'agit d'un programme quadratique convexe à contrainte quadratique, équivalent à un programme conique du second ordre, et deux coûts en viennent à dominer à mesure que le nombre de candidats croît. Le premier est la matrice de parenté elle-même : dense et $n\times n$, elle coûte $O(n^2)$ à stocker et $O(n^2 m)$ à construire à partir de $m$ marqueurs, et à des dizaines de milliers de candidats elle ne tient plus dans la mémoire d'une station de travail. Le second est la résolution conique. Or le vecteur de contributions optimal est presque toujours porté par une poignée d'individus --- une parcimonie qui, comme nous le montrons, persiste à mesure que $n$ croît --- et les solveurs généralistes n'exploitent ni cela ni la structure peu coûteuse de la contrainte de parenté.
+
+Les outils en usage couvrent l'exact et l'heuristique, mais partagent un même schéma : assembler la matrice de parenté complète et confier le problème entier à un optimiseur générique portant sur tous les candidats. La méthode originale de Meuwissen (1997), et son successeur Gencont2 (Dagnachew \& Meuwissen 2016), itèrent les conditions lagrangiennes sur l'ensemble complet des candidats. Le paquet optiSel (Wellmann 2019), l'outil exact de référence, formule l'OCS comme un programme conique pour un solveur primal-dual à point intérieur. Les formulations semi-définies (Pong-Wong \& Woolliams 2007) et de récents solveurs ADMM/JuMP (Waldmann 2025) suivent la même voie, ce dernier formant explicitement la matrice dense $\bG$ et ne tronquant les petites contributions qu'a posteriori. AlphaMate (Gorjanc \& Hickey 2018) troque l'exactitude contre une heuristique à évolution différentielle qui alloue aussi les accouplements. La seule tentative d'exploiter une parcimonie, Yamashita, Mullin \& Safarina (2018), exploite la parcimonie de l'\emph{inverse du pedigree} $\bA^{-1}$ --- une propriété de la matrice de données --- au sein d'une résolution à point intérieur sur tous les candidats ; ce n'est ni la parcimonie de la \emph{solution}, ni une méthode sans matrice fondée sur les génotypes. Aucun de ces outils n'exploite les deux faits qui rendent l'OCS génomique peu coûteuse : que le support optimal est minuscule et borné en $n$, et qu'à support fixé le sous-problème contraint en parenté admet une solution en forme fermée. Aucun n'évite de matérialiser $\bG$, qui devient la contrainte limitante --- en mémoire et en temps de construction --- précisément aux tailles de population où l'OCS importe.
+
+Nous présentons \textbf{support-first} (« le support d'abord »), un solveur OCS exact bâti sur ces deux faits. Il maintient un petit support de travail, initialisé avec le meilleur candidat de chaque sexe et étendu par une règle d'ensemble actif fondée sur le coût réduit : les candidats sont évalués contre les multiplicateurs courants, le plus avantageux est introduit, ceux qui deviennent négatifs sont retirés, le tout vers une unique borne de coancestrie fixée $k$. Chaque sous-problème à support fixé --- maximiser une forme linéaire sur un ellipsoïde intersecté avec les contraintes affines de somme (et de sexe) --- est résolu en forme fermée, en éliminant les contraintes d'égalité et en se ramenant à une équation quadratique scalaire dans le multiplicateur actif, sans solveur itératif interne. Les produits de parenté $\bG\bc$ sont formés sans matrice à partir de la matrice de génotypes centrée $\bZ$ sous la forme $\varepsilon\bc + \bZ(\bZ\tp\bc)/s$, de sorte que le solveur ne construit ni ne stocke jamais la matrice dense $n\times n$ $\bG$.
+
+Les ingrédients pris isolément sont classiques, et nous n'en revendiquons aucun. Les méthodes d'ensemble actif qui suivent un petit ensemble de travail d'actifs détenus descendent de l'algorithme de la ligne critique de Markowitz (1956) pour la sélection moyenne--variance long-only, dont l'OCS est l'analogue contraint en parenté ; la forme fermée pour un objectif linéaire sur un ellipsoïde intersecté avec des contraintes linéaires est un résultat de valeur propre contrainte / équation séculaire (Gander, Golub \& von Matt 1989) ; et le produit sans matrice $\bZ(\bZ\tp\bc)$ est standard en prédiction génomique (VanRaden 2008 ; Legarra \& Misztal 2008). Notre contribution est leur \textbf{synthèse, spécialisée à l'OCS génomique} : une génération de colonnes fondée sur le coût réduit qui fait croître un support minuscule vers une \emph{unique} borne de coancestrie --- par opposition au balayage paramétrique de \emph{toute} la frontière efficace de l'algorithme de la ligne critique --- avec le produit de parenté évalué sans matrice, de sorte que le coût d'une résolution suit la taille du support et le nombre de marqueurs, plutôt que la matrice dense $n\times n$. À notre connaissance, aucune méthode OCS antérieure n'exploite la parcimonie du support de la solution, et aucune n'est sans matrice fondée sur les génotypes ; le bénéfice, le produit sans matrice étant ce qui rend une résolution à support borné rentable à $n$ génomique, tient à la combinaison plutôt qu'à l'une quelconque de ses parties.
+
+Sur données réelles --- un panel de blé CIMMYT ($n=599$), un panel de porc PIC ($n=3534$, 52k SNP) et un panel de souris en population hétérogène ($n=1814$, avec sexe réel) --- support-first atteint l'optimum exact, en accord à $10^{-8}$ près avec l'optimum conique ; à coancestrie réalisée appariée, il coïncide avec les méthodes à point intérieur, et là où celles-ci s'arrêtent juste à l'intérieur de la contrainte, support-first atteint la frontière, de sorte que son léger avantage est le budget de diversité qu'elles laissent inemployé, et non un optimum différent --- le tout en s'exécutant 90$\times$ à 2280$\times$ plus vite, et ${\sim}37000\times$ plus vite qu'un solveur conique généraliste à point intérieur à $n=10000$. Face à AlphaMate, une heuristique pour le problème distinct de l'allocation discrète des accouplements, l'optimum exact n'est pas moins bon, à coancestrie appariée, sur la relaxation continue commune aux deux méthodes, en une fraction du temps de calcul. Sur des populations synthétiques, le support optimal reste entre 14 et 19 quand $n$ croît de 1000 à 40000, tandis que la matrice dense $\bG$ que les alternatives doivent former atteint 11,9~Gio --- une empreinte 40$\times$ plus grande que $\bZ$, au-delà de la mémoire vive d'un portable de 8--16~Go --- dans un régime où support-first résout encore en moins de 0,1~s. Support-first rend la sélection à contribution optimale exacte et reproductible praticable à l'échelle génomique sur un ordinateur portable.
+
+\section{Méthodes}
+
+\subsection{Sélection à contribution optimale}
+
+Pour $n$ candidats à la sélection de valeurs génétiques estimées $\bb\in\mathbb{R}^n$ et de matrice de parenté génomique $\bG\in\mathbb{R}^{n\times n}$, la sélection à contribution optimale choisit les contributions génétiques proportionnelles $\bc$ qui résolvent
+\[
+  \text{maximiser } \bb\tp\bc \quad\text{sous}\quad \bA\bc=\bd,\ \ 0\le\bc\le\bu,\ \ \bc\tp\bG\bc\le k.
+\]
+Les contraintes affines $\bA\bc=\bd$ encodent le budget de contribution. Dans la forme simplexe, une seule ligne $\bA=\mathbf{1}\tp$, $\bd=1$, impose $\sum_i c_i = 1$. Dans la forme \emph{sexuée} --- la vraie OCS, puisque chaque accouplement tire un parent de chaque sexe --- $\bA$ est la matrice d'incidence de sexe $2\times n$ (ligne 1 l'indicatrice mâle, ligne 2 l'indicatrice femelle) et $\bd=(\tfrac12,\tfrac12)\tp$, imposant $\sum_{\text{mâles}} c_i = \sum_{\text{femelles}} c_i = \tfrac12$. Le plafond par candidat $\bu$ borne la contribution d'un individu donné --- un sélectionneur laisse rarement un seul parent dominer une génération --- et est inactif à $\bu=1$. La borne de parenté $\bc\tp\bG\bc\le k$ plafonne la coancestrie moyenne de la descendance. Nous prenons $\bG$ comme la matrice de parenté génomique de VanRaden, $\bG=\bZ\bZ\tp/s+\varepsilon\mathbf{I}$, où $\bZ$ est la matrice $n\times m$ des génotypes centrés par deux fois les fréquences alléliques, $s=2\sum_j p_j(1-p_j)$, et $\varepsilon$ une faible régularisation ridge assurant la définie-positivité (la même matrice régularisée que contraignent les références coniques, de sorte que tous les solveurs affrontent un problème identique). Le programme est un programme quadratique convexe à contrainte quadratique, équivalent à un programme conique du second ordre.
+
+\subsection{Deux faits structurels}
+
+Support-first repose sur deux propriétés de l'optimum $\bc^*$. Premièrement, à une borne de parenté active, $\bc^*$ a pour support un petit ensemble $S=\{i: 0<c^*_i<u_i\}$ de contributions \emph{libres}, et $S$ est empiriquement borné quand $n$ croît (Résultats). Deuxièmement, sur la face où les contraintes de borne inactives sont supprimées (candidats fixés à 0 ou à leur plafond $\bu$), le problème restreint à $S$ --- maximiser une forme linéaire sur un ellipsoïde intersecté avec les contraintes affines --- admet une solution en forme fermée. Toute la difficulté est donc d'identifier $S$ et de savoir quels candidats sont à leur plafond ; tout le reste est une petite résolution directe.
+
+\subsection{Forme fermée sur un support fixé}
+
+Fixons un support $S$ de taille $|S|$, et notons $\bG_S$, $\bb_S$, $\bA_S$ les restrictions à $S$ ($\bA_S$ est $q\times|S|$ avec $q=1$ ou 2 lignes d'égalité). À l'optimum du problème restreint, la contrainte de parenté est active, et les conditions de stationnarité s'écrivent
+\[
+  \bb_S = \bA_S\tp\mu + 2\lambda\,\bG_S\bc_S,\qquad \bA_S\bc_S=\bd,\qquad \bc_S\tp\bG_S\bc_S=k,
+\]
+avec multiplicateurs $\mu\in\mathbb{R}^q$ et $\lambda\ge0$. Résoudre la stationnarité pour $\bc_S$ donne $\bc_S=\tfrac{1}{2\lambda}\bG_S^{-1}(\bb_S-\bA_S\tp\mu)$. Imposer les contraintes affines élimine $\mu$ : avec la matrice $q\times q$ $\mathbf{P}=\bA_S\bG_S^{-1}\bA_S\tp$ et le vecteur $\mathbf{q}_v=\bA_S\bG_S^{-1}\bb_S$,
+\[
+  \mu=\mathbf{P}^{-1}(\mathbf{q}_v-2\lambda\bd),\qquad\text{d'où}\qquad \bc_S=\mathbf{g}/(2\lambda)+\mathbf{h},
+\]
+où $\mathbf{g}=\bG_S^{-1}(\bb_S-\bA_S\tp\mathbf{P}^{-1}\mathbf{q}_v)$ et $\mathbf{h}=\bG_S^{-1}\bA_S\tp\mathbf{P}^{-1}\bd$ vérifient $\bA_S\mathbf{g}=\mathbf{0}$ et $\bA_S\mathbf{h}=\bd$, de sorte que $\bA_S\bc_S=\bd$ pour tout $\lambda$. En substituant dans l'ellipsoïde actif $\bc_S\tp\bG_S\bc_S=k$ et en posant $\alpha=\mathbf{g}\tp\bG_S\mathbf{g}$, $\beta=\mathbf{g}\tp\bG_S\mathbf{h}$, $\gamma=\mathbf{h}\tp\bG_S\mathbf{h}$, on obtient une unique équation quadratique scalaire dans le multiplicateur :
+\[
+  4(\gamma-k)\,\lambda^2 + 4\beta\,\lambda + \alpha = 0.
+\]
+On prend la racine positive maximisant $\bb_S\tp\bc_S$. Comme $\bG_S\mathbf{g}=\bb_S-\bA_S\tp\mathbf{P}^{-1}\mathbf{q}_v$ et $\bG_S\mathbf{h}=\bA_S\tp\mathbf{P}^{-1}\bd$ sont déjà disponibles, $\alpha,\beta,\gamma$ ne coûtent que des produits scalaires --- pas de seconde factorisation. Une résolution restreinte est donc : une factorisation de Cholesky de $\bG_S$, des remontées pour les $q+1$ seconds membres $[\bA_S\tp\mid\bb_S]$, une inversion $q\times q$ ($q\le2$) et une équation quadratique scalaire --- sans itération interne. Le cas simplexe ($q=1$, $\bA_S=\mathbf{1}\tp$) est identique et se réduit à une équation quadratique scalaire en $\mu$. Quand les égalités déterminent entièrement $\bc_S$ ($|S|=q+1$), les contributions sont forcées --- $(\tfrac12,\tfrac12)$ dans le cas sexué --- et l'on pose $\lambda=0$ (le sous-cas actif est de mesure nulle, comme pour un support singleton). La résolution renvoie « infaisable sur $S$ » quand $S$ manque d'un sexe ou que l'ellipsoïde ne rencontre pas l'enveloppe affine, signal pour agrandir $S$.
+
+\subsection{L'algorithme support-first}
+
+Le support est trouvé par génération de colonnes en ensemble actif. Il est initialisé avec le meilleur candidat de chaque sexe, $S=\{\arg\max_{\text{mâles}} b,\ \arg\max_{\text{femelles}} b\}$. Chaque itération résout la forme fermée sur le $S$ courant et se ramifie :
+
+\begin{itemize}
+\item \textbf{Infaisable sur $S$} (le support est trop apparenté pour atteindre la borne $k$) : ajouter les candidats les moins apparentés, ceux de plus petit $(\bG\bc)_j$, par paquet doublant $|S|$. Cette phase de faisabilité, lorsqu'elle se faisait un candidat à la fois, était le coût dominant ; le traitement par paquets a réduit le nombre total d'itérations d'environ un facteur trente, pour un optimum identique.
+\item \textbf{Une contribution est négative} : retirer tout $i$ tel que $c_{S,i}\le0$, en les marquant tabous à la réintroduction jusqu'à la prochaine amélioration véritable, puis re-résoudre ; si un retrait vide un sexe, son meilleur candidat est réintroduit.
+\item \textbf{Sinon} : évaluer chaque candidat $j\notin S$ par son coût réduit $r_j=b_j-\mu_{\text{sexe}(j)}-2\lambda(\bG\bc)_j$, et ajouter le maximiseur si $r_j>\text{tol}$ ; si aucun n'est positif, arrêter. Un ajout véritable vide l'ensemble tabou.
+\end{itemize}
+
+Le problème étant convexe, un point réalisable où aucun candidat n'a de coût réduit positif satisfait les conditions de Karush--Kuhn--Tucker et constitue l'optimum global ; la correction n'est donc pas heuristique. L'ensemble tabou, conjugué à un seuil de dégénérescence calibré sur l'ordre de grandeur des coefficients, garantit une terminaison finie. L'évaluation par coût réduit vers une \emph{unique} borne fixée $k$ distingue la mise à jour du support de l'algorithme de la ligne critique, qui modifie l'ensemble actif de $\pm1$ le long d'un multiplicateur balayé pour tracer toute la frontière efficace.
+
+Un plafond par candidat $\bc\le\bu$ est absorbé par le même ensemble actif sans perte de la forme fermée. Une contribution libre qui dépasse son plafond est fixée à $u_j$ et déplacée dans un ensemble \emph{supérieur} $U$ ; un candidat déjà dans $U$ est relâché vers l'ensemble libre quand son coût réduit devient négatif. À $U$ fixé, la résolution restreinte conserve sa structure --- les contributions fixées entrent dans le second membre affine sous la forme $\bd-\bA_U\bu_U$ et dans l'ellipsoïde actif comme un décalage sans matrice $\bG_{\cdot U}\bu_U$ plus une constante, laissant la même factorisation de Cholesky et la même équation quadratique scalaire. La résolution bornée se réduit à la résolution non bornée quand aucun plafond n'est actif, et atteint le même optimum qu'un solveur conique à point intérieur sur le programme conique $\bc\le\bu$ correspondant, sous plafonds actifs.
+
+\subsection{Produits de parenté sans matrice}
+
+Tout produit de parenté complet est formé sans matérialiser $\bG$ :
+\[
+  \bG\bc = \varepsilon\,\bc + \bZ(\bZ\tp\bc)/s,
+\]
+deux produits matrice--vecteur contre la matrice de génotypes $n\times m$, en $O(n\cdot m)$ en temps et $O(n\cdot m)$ en mémoire pour $\bZ$ contre $O(n^2)$ pour une $\bG$ dense. La $\bG_S$ restreinte n'est assemblée que sur le support. C'est l'élément habilitant à grand $n$, où la matrice dense $n\times n$ $\bG$ est infaisable à stocker ou coûteuse ($O(n^2 m)$) à construire ; ce n'est pas une accélération de boucle interne quand $m>n$, et l'avantage d'un ordre de grandeur sur les références coniques est algorithmique --- le petit ensemble actif --- indépendant de ce choix.
+
+\subsection{Implémentation et reproductibilité}
+
+Le solveur est implémenté en Rust sur une pile purement Rust : algèbre linéaire dense (la factorisation de Cholesky et les remontées sur le support) via \texttt{faer}, sans dépendance système BLAS/LAPACK, sans \texttt{unsafe}, et avec un générateur aléatoire reproductible amorcé pour les générateurs synthétiques. Un solveur conique à point intérieur (\texttt{clarabel}) n'est inclus que comme oracle indépendant de contre-vérification. La correction est attestée par des tests unitaires à certificat KKT sur une plage de bornes $k$ --- un résultat \texttt{Solved} est toujours réalisable, sur le budget et réparti par sexe --- et par un accord inter-langage : sur une instance active, le \texttt{solve\_sexed} en Rust reproduit un optimum de référence NumPy à une différence de gain de $1{,}5\times10^{-14}$ près. La compilation est conditionnée à \texttt{cargo fmt}, \texttt{cargo clippy -D warnings} et la suite de tests.
+
+\subsection{Données et références de comparaison}
+
+La méthode est évaluée sur trois panels de marqueurs publics : un panel de blé CIMMYT (\texttt{BGLR}, $n=599$), un panel de porc PIC ($n=3534$, 52k SNP, avec valeurs génétiques estimées réelles) et un panel de souris en population hétérogène (\texttt{BGLR}, $n=1814$, avec sexe enregistré, 934 mâles et 880 femelles, l'indice de masse corporelle servant de critère de sélection). Pour chacun, $\bG$ est la matrice de VanRaden avec régularisation ridge $\varepsilon=10^{-5}$. Les références de comparaison sont optiSel (R, le solveur à point intérieur Nesterov--Todd \texttt{cccp} ; la référence exacte du domaine), Clarabel (la contre-vérification conique) et AlphaMate (évolution différentielle en Fortran ; exécuté depuis son binaire Linux sous émulation, faute de compilation macOS et la source étant verrouillée à une chaîne d'outils Intel). Réserves honnêtes reportées à la Discussion : le sexe enregistré n'est disponible que pour le panel souris (une répartition équilibrée arbitraire est utilisée ailleurs --- le blé est autogame et le panel PIC ne fournit pas de sexe exploitable) ; le critère de sélection $\bb$ est un phénotype enregistré ou une VGE tenant lieu de vraie valeur génomique sur ces panels publics ; et les chronométrages du prototype comparent un support-first en NumPy à R/optiSel, une différence algorithmique et non de langage, le chronométrage Rust mono-langage étant rapporté séparément.
+
+\section{Résultats}
+
+\subsection{Exactitude}
+
+Support-first est exact par construction : pour un programme convexe, un point réalisable où aucun candidat n'a de coût réduit positif satisfait les conditions KKT, et c'est ce que l'ensemble actif certifie à la terminaison (et ce que les tests unitaires vérifient sur une plage de bornes de parenté). Empiriquement, sur l'exemple \texttt{Cattle} d'optiSel (bovins Angler, $n=268$) avec le sexe réel enregistré fourni par le paquet, support-first et optiSel sélectionnent le \emph{même} support de 36 individus et s'accordent sur les contributions à $3\times10^{-4}$ près (contribution maximale 0,0664 contre 0,0661). Ils ne diffèrent qu'à la frontière de parenté : l'optimum OCS se situe sur la borne (le gain y est monotone), et support-first l'atteint ($\bc\tp\bG\bc=k$), tandis que le solveur à point intérieur d'optiSel s'arrête à sa tolérance de convergence juste à l'intérieur de la région réalisable (parenté de groupe 0,0576 contre une borne de 0,0578). À coancestrie réalisée appariée, les deux coïncident --- sur le panel souris, tous deux atteignent un gain de $-0{,}29754$ à une coancestrie de 0,0346 --- de sorte que le léger avantage de support-first à son propre point de fonctionnement est le budget de diversité qu'optiSel laisse inemployé sur la frontière, et non un optimum différent : la différence est la saturation de la frontière versus un arrêt intérieur. Face à un solveur conique à point intérieur indépendant (Clarabel) sur données synthétiques, les deux s'accordent à une différence de gain inférieure à $10^{-8}$ sur toute la plage de bornes de parenté, et l'implémentation Rust du solveur sexué reproduit un optimum de référence NumPy à $1{,}5\times10^{-14}$ près sur une instance active. Support-first est donc au moins aussi exact que l'outil du domaine, et exact là où les méthodes à point intérieur ne font qu'approcher.
+
+\subsection{Vitesse face à un solveur conique généraliste}
+
+Sur des instances génomiques synthétiques, support-first est plus rapide que le solveur conique Clarabel d'un facteur qui croît fortement avec $n$ (Tableau~\ref{tab:clarabel}) : de ${\sim}130\times$ à $n=1000$ à ${\sim}37000\times$ à $n=10000$, où Clarabel prend 26 minutes et support-first 43~ms. Ce passage à l'échelle est structurel --- Clarabel factorise un système KKT dense en $O(n^3)$ à chaque itération de point intérieur, tandis que support-first effectue un nombre quasi constant de produits matrice--vecteur (3 à 6 ici), chacun en $O(n\cdot m)$.
+
+\begin{table}[ht]
+\centering
+\caption{support-first contre Clarabel (synthétique, optimum identique).}
+\label{tab:clarabel}
+\begin{tabular}{rrrr}
+\toprule
+$n$ & Clarabel & support-first & accélération \\
+\midrule
+1000  & 1,40~s   & 0,011~s & 126$\times$ \\
+2000  & 10,6~s   & 0,022~s & 472$\times$ \\
+5000  & 160~s    & 0,036~s & 4474$\times$ \\
+10000 & 1579~s   & 0,043~s & \textbf{37090$\times$} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Vitesse face à l'outil du domaine optiSel}
+
+Un solveur générique est une cible facile ; la comparaison informative se fait contre optiSel, l'outil OCS exact de référence, sur sa propre formulation. Après extension de support-first aux deux contraintes d'égalité de sexe, il renvoie le même optimum qu'optiSel tout en s'exécutant 90$\times$ à 2280$\times$ plus vite sur trois panels de marqueurs réels (Tableau~\ref{tab:optisel}), et 22$\times$ à 97$\times$ plus vite sur des populations synthétiques structurées. La plus grande marge est sur le panel de porc PIC ($n=3534$), où optiSel prend 55~s et support-first 24~ms.
+
+\begin{table}[ht]
+\centering
+\caption{support-first contre optiSel (R/\texttt{cccp}), même optimum partout.}
+\label{tab:optisel}
+\begin{tabular}{lrrrr}
+\toprule
+jeu de données & $n$ & support-first & optiSel & accélération \\
+\midrule
+synthétique (structuré)        & 1000 & 0,09~s  & 2,0~s   & 22$\times$ \\
+synthétique (structuré)        & 2000 & 0,29~s  & 11,9~s  & 41$\times$ \\
+synthétique (structuré)        & 5000 & 1,47~s  & 143~s   & 97$\times$ \\
+blé CIMMYT (GRM réelle)        & 599  & 0,007~s & 0,63~s  & 90$\times$ \\
+porc PIC (GRM réelle, 52k SNP) & 3534 & 0,024~s & 54,8~s  & \textbf{2280$\times$} \\
+souris HS (GRM réelle, sexe réel) & 1814 & 0,008~s & 6,96~s & 870$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La ligne souris est la vraie OCS sexuée, sur un sexe réellement enregistré (934 mâles, 880 femelles). Réserves reportées à la Discussion : les chronométrages de support-first sont ceux du prototype NumPy et optiSel est en R, de sorte que le facteur reflète l'algorithme (l'ensemble actif sur un support minuscule) plutôt que le langage ; le sexe n'est réel que pour le panel souris ; et le critère de sélection est un phénotype enregistré ou une VGE utilisée comme approximation d'une valeur génomique.
+
+\subsection{Comparaison avec l'heuristique AlphaMate}
+
+AlphaMate optimise un problème apparenté mais distinct --- l'allocation discrète des accouplements par un algorithme évolutionnaire stochastique --- de sorte que ce n'est pas une confrontation à armes égales, et nous l'interprétons en conséquence. Nous évaluons \emph{son} vecteur de contributions dans notre métrique et comparons, à coancestrie de groupe appariée, uniquement sur la relaxation à contributions continues commune aux deux méthodes. Sur cette relaxation, l'optimum exact de support-first a un gain supérieur à celui du vecteur d'AlphaMate en chaque point de sa frontière (Tableau~\ref{tab:alphamate}) : une faible marge au compromis à 45$^\circ$ ($\Delta$gain $+0{,}004$) et des marges plus grandes aux coins --- comme il se doit d'un optimum convexe exact face à une heuristique stochastique portant en outre des contraintes d'accouplement entières. Nous lisons cela comme un contrôle de cohérence (support-first est exact sur la relaxation commune), et non comme une victoire sur AlphaMate à sa propre tâche, l'allocation discrète des accouplements, que support-first n'effectue pas et qui est hors champ ici. AlphaMate s'est en outre révélé nettement fragile sur données génomiques réelles : une exécution réussie a exigé six configurations et trois contournements distincts --- plafonner les accouplements sous $n$ ; restaurer l'ensemble complet des parents, pour éviter une faute de segmentation à l'initialisation déclenchée par le nombre réduit de parents ; et décaler positivement le critère de sélection, pour défaire une inversion de signe valeur-sur-maximum qui faisait maximiser l'heuristique dans le mauvais sens sur les VGE centrées et négatives --- alors que support-first et optiSel ont tourné sans modification. AlphaMate a calculé sa frontière entière en 882~s de temps CPU (un binaire x86 émulé, faute de compilation native) ; support-first trace la frontière exacte à $\le1{,}1$~s par point.
+
+\begin{table}[ht]
+\centering
+\caption{Gain génétique à coancestrie de groupe appariée, panel souris (évalué dans la même métrique à partir du vecteur de contributions de chaque méthode).}
+\label{tab:alphamate}
+\begin{tabular}{lrrr}
+\toprule
+coancestrie de groupe $\bc\tp\mathbf{K}\bc$ & AlphaMate & support-first & $\Delta$gain \\
+\midrule
+0,000272 (coancestrie min. AlphaMate) & −0,45885 & \textbf{−0,37843} & $+0{,}080$ \\
+0,001317 (optimum 45$^\circ$ AlphaMate) & −0,35748 & \textbf{−0,35318} & $+0{,}004$ \\
+0,007574 (critère max. AlphaMate) & −0,34066 & \textbf{−0,32240} & $+0{,}018$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Passage à l'échelle et avantage sans matrice}
+
+L'avantage en coût se maintient --- et croît --- à l'échelle. En balayant le nombre de candidats de 1000 à 40000 à panel de marqueurs fixé ($m=1000$) sous une borne de parenté active, le support optimal reste entre 14 et 19 (Figure~\ref{fig:scaling}A) et la résolution sans matrice reste sous 0,1~s. La matrice de parenté dense que tout autre solveur doit matérialiser raconte l'histoire inverse. Sa seule \emph{construction} coûte $O(n^2 m)$ : 3,6~s à $n=30000$, déjà 63$\times$ la résolution support-first entière à cette taille, et croissant quadratiquement (Figure~\ref{fig:scaling}A). Son \emph{stockage} coûte $O(n^2)$ : 11,9~Gio à $n=40000$, où l'empreinte sans matrice de $\bZ$ est de 0,30~Gio et où la matrice dense ne tient plus dans la mémoire vive d'un portable (Figure~\ref{fig:scaling}B). La matrice dense devient la contrainte limitante, en temps d'initialisation et en mémoire, précisément dans le régime où support-first reste peu coûteux --- parce que le coût du solveur suit le support et le nombre de marqueurs, jamais la matrice $n\times n$.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{fig_scaling.pdf}
+\caption{Passage à l'échelle sans matrice contre $\bG$ dense. \textbf{(A)} Le support optimal reste borné (14--19) et la résolution support-first reste sous 0,1~s quand $n$ croît jusqu'à 40000, tandis que la construction de la $\bG$ dense croît en $O(n^2 m)$. \textbf{(B)} Mémoire : la $\bG$ dense atteint 11,9~Gio à $n=40000$ contre 0,30~Gio pour la $\bZ$ sans matrice.}
+\label{fig:scaling}
+\end{figure}
+
+\subsection{Comportement du support}
+
+L'avantage repose sur le support, dont la taille est une propriété du point de fonctionnement plutôt qu'une constante universelle --- aussi le caractérisons-nous le long de toute la frontière, et non à une seule borne. Sur le panel souris, le support croît régulièrement et de façon monotone à mesure que la borne de coancestrie se resserre : 19 candidats sur 1814 à la coancestrie de travail (0,0346), 61 à 0,010, 133 à 0,003, 189 à 0,0015, 473 à 0,0002, et environ 1163 à l'approche de zéro --- où minimiser l'apparentement force la solution à s'étaler sur une grande partie de la population --- et il s'effondre à deux pour une borne lâche. L'affirmation est donc double, et nous gardons les axes séparés : à une borne de fonctionnement \emph{fixée}, le support est borné quand $n$ croît (14--19 jusqu'à $n=40000$, Figure~\ref{fig:scaling}A), tandis que \emph{le long} de la frontière, il croît à mesure qu'on pousse la diversité. Le coût par résolution suit le support, qui est petit dans le régime que les sélectionneurs utilisent réellement, et que nous rapportons sur toute la frontière plutôt qu'en un seul point. La question de savoir si cela est démontrable --- indépendant de $n$ à borne fixée, croissant quand la borne se resserre --- est reprise dans la Discussion.
+
+\section{Discussion}
+
+Support-first rend la sélection à contribution optimale exacte peu coûteuse à l'échelle génomique. Sur les panels testés, il atteint le même optimum que l'outil exact du domaine tout en s'exécutant deux à trois ordres de grandeur plus vite, et il reste peu coûteux précisément là où la matrice de parenté dense que tout autre solveur forme devient infaisable --- le régime à grand nombre de candidats qui motive l'OCS génomique en premier lieu. La méthode étant exacte et déterministe --- un ensemble actif certifié Karush--Kuhn--Tucker plutôt qu'une recherche stochastique --- sa sortie est reproductible jusqu'au dernier chiffre, contrairement aux outils heuristiques de sélection d'accouplements auxquels elle est comparée.
+
+Les ingrédients de la méthode sont individuellement classiques, et nous n'en revendiquons que la synthèse. Le suivi par ensemble actif d'un petit ensemble de travail descend de l'algorithme de la ligne critique pour la sélection moyenne--variance long-only ; la forme fermée par support est un résultat de valeur propre contrainte ; le produit sans matrice est standard en prédiction génomique. La contribution est leur combinaison, spécialisée à l'OCS : une génération de colonnes par coût réduit qui fait croître un support minuscule vers une unique borne de coancestrie, avec le produit de parenté évalué sans matrice de sorte que le coût suit le support et le nombre de marqueurs plutôt que la matrice $n\times n$. Située face aux travaux antérieurs les plus proches, ce n'est ni la parcimonie de la matrice de pedigree d'un solveur OCS à point intérieur, ni les résolutions denses sur toute la population des outils de référence.
+
+Plusieurs limites bornent ces résultats, et nous les énonçons clairement. Premièrement, les panels publics portent un phénotype enregistré ou une VGE que nous utilisons en lieu et place d'une vraie valeur génomique ; les résultats de vitesse et d'exactitude n'en sont pas affectés, mais les vecteurs de contributions eux-mêmes sont illustratifs, et non des recommandations de sélection. Deuxièmement, un sexe réellement enregistré n'est disponible que pour le panel souris ; ailleurs, nous imposons une répartition équilibrée arbitraire, de sorte que seul le résultat souris met en jeu les vraies contraintes sexuées sur données réelles. Troisièmement, les chronométrages en confrontation directe comparent un prototype NumPy à R/optiSel : l'écart d'un ordre de grandeur est algorithmique --- tous deux réalisent le même ensemble actif --- mais une comparaison mono-langage le placerait hors de doute, et nos propres mesures sont explicites sur le fait que le produit sans matrice n'est \emph{pas} une accélération de boucle interne quand les marqueurs dépassent les candidats ($m>n$), où le parcours en flux de la matrice de génotypes coûte plus qu'un produit dense résident. La voie sans matrice est l'élément habilitant en mémoire et à grand $n$ ; l'avantage en vitesse sur les solveurs coniques est le petit ensemble actif. Quatrièmement, le caractère borné du support optimal est, dans cet article, une observation empirique sur un balayage synthétique et les panels réels, et pas encore un théorème, et la voie est plus subtile qu'un comptage de contraintes. Sans ridge ($\varepsilon=0$, $\bG=\bZ\bZ\tp/s$ de rang $r$), un argument propre le borne : l'optimum maximise un lagrangien qui ne dépend de $\bc$ qu'à travers $(\bZ\tp\bc,\ \bb\tp\bc)$, de sorte que la tranche optimale $\{\bA\bc=\bd,\ \bc\ge0,\ \bZ\tp\bc=\bZ\tp\bc^\star,\ \bb\tp\bc=\bb\tp\bc^\star\}$ est un polytope LP dont les sommets portent $\le q+r+1$ composantes non nulles --- une borne de point extrême / Carathéodory, indépendante de $n$, sur exactement le sommet que renvoie un solveur à ensemble actif comme support-first (les solveurs à point intérieur et ADMM renvoient au contraire des points intérieurs non parcimonieux qu'ils seuillent a posteriori). Le ridge opératoire $\varepsilon>0$ rend toutefois $\bG$ de plein rang, et nous constatons numériquement que le support réalisé n'est alors pas gouverné par rang($\bG_0$) : il reste petit (quelques dizaines au plus) et stable en $n$ sur les panels ici, mais ne se réduit pas à une unique quantité spectrale propre --- le rang effectif est suggestif mais, sur un balayage de spectres, n'est pas un prédicteur fiable --- de sorte qu'une borne serrée pour le problème ridgé reste ouverte. La génétique rend compte de la croissance : $\Delta F\propto\sum c_i^2$ (Wray \& Thompson 1990 ; Woolliams \& Bijma 2000) avec $N_e\approx1/(2\Delta F)$, de sorte que resserrer la borne étale les contributions et fait croître le support, comme observé. Nous développons cette caractérisation dans des travaux ultérieurs. Enfin, le solveur gère une unique contrainte quadratique de parenté, des plafonds de contribution par candidat ($0\le\bc\le\bu$) et les égalités de sexe, mais pas encore plusieurs contraintes quadratiques à la fois --- matrices de parenté multiples, limites de coancestrie spécifiques à des groupes --- ni l'allocation entière des accouplements que fournit AlphaMate ; il renvoie des contributions continues.
+
+Chaque limite indique une extension. Le c\oe ur en forme fermée par support admet déjà plus d'une contrainte d'égalité via la même élimination $\mathbf{P}=\bA\bG^{-1}\bA\tp$ ; des plafonds quadratiques actifs supplémentaires transforment la recherche de racine scalaire en un petit système de faible degré plutôt qu'ils n'en changent la structure, de sorte que des contraintes de parenté multiples sont à portée. Une couche d'arrondi ou de séparation et évaluation (branch-and-bound) au-dessus de l'optimum continu ajouterait l'allocation des accouplements tout en gardant la relaxation exacte comme borne serrée --- combinant l'exactitude de support-first avec le plan discret que les heuristiques visent directement. Le basculement sans matrice en $m$ versus $n$ mérite une caractérisation explicite, tout comme la borne de support elle-même. Et la méthode devrait être validée sur des jeux de données portant de vraies valeurs génomiques et sur des populations un ordre de grandeur plus grandes, où l'écart mémoire de la Figure~\ref{fig:scaling}B passe de visible à décisif.
+
+Support-first fait une chose --- la sélection à contribution optimale exacte, à contrainte unique, continue --- à une échelle et une vitesse qui mettent l'OCS génomique à portée d'un ordinateur portable et d'un script reproductible. Cette affirmation étroite et vérifiée, et les extensions ouvertes qu'elle invite, constituent la contribution.
+
+\section*{Disponibilité des données et du code}
+
+Le solveur support-first ainsi que tous les scripts de comparaison et de reproduction sont disponibles à \url{https://github.com/Adelagric/ocs-rs} (licence MIT) et archivés sur Zenodo (\url{https://doi.org/10.5281/zenodo.20746987}). Chaque tableau et figure est régénéré par \texttt{research/repro/repro.sh}. Les panels de marqueurs sont publics : les panels blé et souris sont fournis avec le paquet R BGLR (Pérez \& de los Campos 2014) ; le panel de porc PIC est le jeu de données commun de Cleveland, Hickey \& Forni (2012) (DOI 10.1534/g3.111.001453).
+
+\section*{Références}
+\sloppy
+
+\subsection*{Méthodes et outils OCS}
+\begin{enumerate}
+\item \textbf{Meuwissen, T.H.E. (1997).} Maximizing the response of selection with a predefined rate of inbreeding. \emph{Journal of Animal Science} 75(4):934--940. DOI 10.2527/1997.754934x.
+\item \textbf{Dagnachew, B.S. \& Meuwissen, T.H.E. (2016).} A fast Newton--Raphson based iterative algorithm for large scale optimal contribution selection. \emph{Genetics Selection Evolution} 48(1):70. DOI 10.1186/s12711-016-0249-2.
+\item \textbf{Pong-Wong, R. \& Woolliams, J.A. (2007).} Optimisation of contribution of candidate parents to maximise genetic gain and restricting inbreeding using semidefinite programming. \emph{Genetics Selection Evolution} 39(1):3--25. DOI 10.1186/1297-9686-39-1-3.
+\item \textbf{Wellmann, R. (2019).} Optimum contribution selection for animal breeding and conservation: the R package optiSel. \emph{BMC Bioinformatics} 20(1):25. DOI 10.1186/s12859-018-2450-5.
+\item \textbf{Gorjanc, G. \& Hickey, J.M. (2018).} AlphaMate: a program for optimizing selection, maintenance of diversity and mate allocation in breeding programs. \emph{Bioinformatics} 34(19):3408--3411. DOI 10.1093/bioinformatics/bty375.
+\item \textbf{Waldmann, P. (2025).} Genomic optimum contribution selection and mate allocation using JuMP. \emph{Bioinformatics Advances} 5(1):vbaf259. DOI 10.1093/bioadv/vbaf259.
+\item \textbf{Yamashita, M., Mullin, T.J. \& Safarina, S. (2018).} An efficient second-order cone programming approach for optimal selection in tree breeding. \emph{Optimization Letters} 12(7):1683--1697. DOI 10.1007/s11590-018-1229-y ; arXiv:1506.04487. --- Exploite la parcimonie de l'\emph{inverse du pedigree}, pas le support de la solution.
+\end{enumerate}
+
+\subsection*{Parenté génomique et produits sans matrice}
+\begin{enumerate}\setcounter{enumi}{7}
+\item \textbf{VanRaden, P.M. (2008).} Efficient methods to compute genomic predictions. \emph{Journal of Dairy Science} 91(11):4414--4423. DOI 10.3168/jds.2007-0980.
+\item \textbf{Legarra, A. \& Misztal, I. (2008).} Technical note: Computing strategies in genome-wide selection. \emph{Journal of Dairy Science} 91(1):360--366. DOI 10.3168/jds.2007-0403.
+\end{enumerate}
+
+\subsection*{Filiation ensemble actif et forme fermée (antériorité reconnue)}
+\begin{enumerate}\setcounter{enumi}{9}
+\item \textbf{Markowitz, H. (1956).} The optimization of a quadratic function subject to linear constraints. \emph{Naval Research Logistics Quarterly} 3(1--2):111--133. DOI 10.1002/nav.3800030110. --- L'algorithme de la ligne critique.
+\item \textbf{Gander, W., Golub, G.H. \& von Matt, U. (1989).} A constrained eigenvalue problem. \emph{Linear Algebra and its Applications} 114--115:815--839. DOI 10.1016/0024-3795(89)90494-1. --- La forme fermée par support (équation séculaire).
+\end{enumerate}
+
+\subsection*{Logiciels et données}
+\begin{enumerate}\setcounter{enumi}{11}
+\item \textbf{Goulart, P.J. \& Chen, Y. (2024).} Clarabel: an interior-point solver for conic programs with quadratic objectives. arXiv:2405.12762. (Version évaluée par les pairs : \emph{Mathematical Programming Computation}, 2026, DOI 10.1007/s12532-026-00320-7.) --- Utilisé uniquement comme oracle de contre-vérification indépendant.
+\item \textbf{Quiñones, S.} faer: a linear-algebra library for the Rust programming language. Logiciel, version 0.24.0 (épinglée dans \texttt{Cargo.toml}) ; \url{https://github.com/sarah-quinones/faer-rs}. (Soumission JOSS en cours d'examen ; pas de DOI publié à ce jour.)
+\item \textbf{Pérez, P. \& de los Campos, G. (2014).} Genome-wide regression and prediction with the BGLR statistical package. \emph{Genetics} 198(2):483--495. DOI 10.1534/genetics.114.164442. --- Source des panels blé (CIMMYT) et souris.
+\item \textbf{Cleveland, M.A., Hickey, J.M. \& Forni, S. (2012).} A common dataset for genomic analysis of livestock populations. \emph{G3: Genes|Genomes|Genetics} 2(4):429--435. DOI 10.1534/g3.111.001453. --- Le panel de porc PIC.
+\end{enumerate}
+
+\end{document}

@@ -14,9 +14,11 @@
 /alphamate/run_mice*/
 /alphamate/run*/
 
-# Built manuscript artifacts (regenerate: python3 research/build_pdf.py + weasyprint)
+# Built manuscript artifacts (regenerate from the .tex with tectonic, or build_pdf.py + weasyprint)
 /research/MANUSCRIPT.html
 /research/MANUSCRIPT.pdf
+/research/MANUSCRIPT_fr.html
+/research/MANUSCRIPT_fr.pdf
 
 # Private outreach drafts — kept local, never published
 /research/contact_*.md
