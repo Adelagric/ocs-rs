@@ -1,101 +1,123 @@
 # Toward a bound on the OCS support size
 
-> Working note — a *route* to turning the empirical observation (|S| small and
-> bounded in n) into a theorem, with the subtleties stated honestly. Not a finished
-> proof. Intended as the seed for the theory follow-on and the INRAE / optimisation
-> collaboration. References at the end were verified in the prior-art search.
+> Working note — turning the empirical observation (|S| small, bounded in n) into
+> theory, with the subtleties stated honestly and **checked numerically**
+> (`research/bound_validation.py`). Not a finished paper. The headline correction:
+> the clean rank bound is an **ε = 0** statement; at the operative ridge the realised
+> support is governed by the **effective (spectral) rank**, not by rank(G₀). Seed for
+> the theory follow-on and the INRAE / optimisation (Alliot) collaboration.
 
 ## The object
 
 Sexed OCS is the second-order cone program
 
-  maximise **bᵀc**  s.t.  **A c = d**  (p rows: p = 1 simplex, p = 2 sexed),
-  **c ≥ 0**,  **cᵀGc ≤ k**,   with **G = ZZᵀ/s + εI**, **Z** ∈ ℝ^{n×m}.
+  maximise **bᵀc**  s.t.  **A c = d**  (q rows: q = 1 simplex, q = 2 sexed),
+  **c ≥ 0**,  **cᵀGc ≤ k**,   with **G = G₀ + εI**, **G₀ = ZZᵀ/s**, **Z** ∈ ℝ^{n×m}.
 
-Let S = supp(c\*) = {i : c\*ᵢ > 0} at the optimum. We observe (Results, and
-independently Waldmann 2025): |S| is small (≈15 at a working cap), **bounded as n
-grows** (14–19 up to n = 40000 at a fixed cap), and grows monotonically as the cap
-k is tightened toward zero coancestry.
+Let S = supp(c\*) at the optimum. We observe (Results; Waldmann 2025): |S| is small
+(≈15 at a working cap), bounded as n grows (14–19 up to n = 40000 at a fixed cap),
+and grows monotonically as k is tightened toward zero coancestry.
 
-## What is clean
+## Loose cap — clean
 
-**Loose cap (kinship slack at the optimum).** If cᵀGc\* < k, the active set near
-c\* is just {A c = d, c ≥ 0}: a polytope, and c\* is a basic feasible solution — an
-LP vertex of a system with p equality rows. Hence **|S| ≤ p**: the unconstrained
-sexed optimum puts all mass on the best male and the best female (|S| = 2). This is
-exactly the loose end of the frontier.
+If cᵀGc\* < k the active set near c\* is just {A c = d, c ≥ 0}: a polytope, c\* an LP
+vertex with q equality rows, so **|S| ≤ q**. The unconstrained sexed optimum puts all
+mass on the best male and the best female (|S| = 2). The loose end of the frontier.
 
-## Where the subtlety is (and where a naive argument fails)
+## Binding cap — the trap
 
-**Binding cap (cᵀGc\* = k).** Now c\* lies on the *curved* boundary of the
-ellipsoid. A naive constraint count — |S| free variables, minus p affine equalities,
-minus 1 active quadratic ⇒ |S| = p + 1 — is **wrong**: it is the count for *linear*
-active constraints (LP vertices). The quadratic boundary is smooth and strictly
-curved, so every point on it (intersected with a coordinate face) is already an
-extreme point of the feasible convex set; the curvature, not a 0-dimensional vertex,
-makes it extreme. So the support of an extreme point of a set with one quadratic
-constraint is **not** bounded by p + 1 — which is consistent with observing |S| ≈ 15,
-not 3. Any honest statement must avoid this trap.
+When cᵀGc\* = k, c\* lies on the *curved* ellipsoid boundary. A naive count (|S| free,
+minus q equalities, minus 1 active quadratic ⇒ |S| = q + 1) is **wrong**: that is the
+count for *linear* active constraints. The quadratic surface is strictly curved, so
+**every** point on it (∩ a coordinate face) is already extreme — curvature, not a
+0-dimensional vertex, makes it extreme. So "extreme point of F" alone gives **no**
+support bound. Any honest statement must dodge this.
 
-## The route to n-independence (the part that does hold)
+## The ε = 0 theorem (this part is proved)
 
-The leverage is the **low rank** of the genomic matrix. Write the stationarity on
-the support, with multipliers μ ∈ ℝ^p (equalities) and λ > 0 (kinship):
+Take ε = 0, so G = G₀ = ZZᵀ/s with rank r ≤ m.
 
-  for i ∈ S:  bᵢ − (Aᵀμ)ᵢ − 2λ(Gc\*)ᵢ = 0,   and  (Gc\*)ᵢ = ε c\*ᵢ + (Z g)ᵢ / s,
-  where  **g := Zᵀc\*** ∈ ℝ^m.
+**Claim.** *There exists an optimal c\* with* **|S| ≤ q + r + 1**, *independent of n.*
 
-So c\*ᵢ = [ bᵢ − (Aᵀμ)ᵢ − 2λ (Zᵢ·g)/s ] / (2λε) on S. The whole optimum is therefore
-parameterised by **(μ, λ, g) ∈ ℝ^{p+1+m}** — a description whose size depends on the
-**number of markers m, not on n**. Equivalently, the kinship constraint acts only
-through the m-dimensional image g = Zᵀc; an extreme optimum lives on a face of the
-feasible set whose dimension is controlled by rank(G) ≤ m (Barvinok–Pataki
-extreme-point counting on the lifted cone, where the SOC has dimension m+1). In the
-regime **m < n** — many candidates, a modest marker panel, precisely the scaling
-experiment (m = 1000, n up to 40000) — this gives a genuine **n-independent** bound:
-|S| is controlled by m + p, not by n. That is the rigorous content behind "the
-support does not grow with n," and it is exactly the regime where the matrix-free
-solver and the empirical plateau live.
+**Proof.** By strong duality (Slater) there is λ\* ≥ 0 with c\* maximising the
+Lagrangian L(c) = bᵀc − λ\*·cᵀG₀c over the polytope {A c = d, c ≥ 0}. Since
+cᵀG₀c = ‖Zᵀc‖²/s, **L depends on c only through (Zᵀc, bᵀc) ∈ ℝ^{r+1}.** Define
 
-Two honest caveats, both to be discharged in the full proof:
-1. **The bound is loose.** rank-counting gives |S| ≲ m + p; we *observe* |S| ≈ 15 ≪ m.
-   The tight, typical-case size is a separate question — likely tied to the effective
-   number of contributors and the genetics below — and is the real prize.
-2. **It is a statement about an *extreme* optimum.** Active-set / vertex-returning
-   solvers (support-first, the critical line algorithm) return such a point; conic
-   interior-point and ADMM solvers return non-sparse interior points and threshold
-   post hoc (Waldmann 2025 truncates at 1e-4). So the theorem is about *precisely the
-   object support-first computes* — which is the natural home for it.
+  P = { c ≥ 0 : A c = d,  Zᵀc = Zᵀc\*,  bᵀc = bᵀc\* }.
+
+Every c ∈ P is feasible (cᵀG₀c = ‖Zᵀc\*‖²/s ≤ k) and attains the optimum (bᵀc = bᵀc\*),
+so **all of P is optimal.** P is a bounded, nonempty polytope cut by q + r + 1 equality
+rows (A, then Zᵀ contributing r independent rows, then bᵀ), so it has a vertex with
+≤ q + r + 1 nonzeros. That vertex is an optimum with the stated support. ∎
+
+This is the Carathéodory / Barvinok–Pataki idea done **correctly**: don't count on the
+curved boundary — **fix the low-rank image Zᵀc and the objective**, which linearises the
+optimal slice, then count LP vertices. And it is a statement about *exactly* what an
+active-set solver returns (a vertex), unlike interior-point / ADMM solvers, which return
+non-sparse interior points and threshold post hoc (Waldmann 2025 truncates at 1e-4).
+
+## The ε > 0 reality — the ridge rewrites the support (numerically established)
+
+The theorem is for ε = 0. The solver — and any PD-requiring method — uses ε > 0, which
+makes **G full rank n**, so rank(G₀) no longer bounds the *solved* problem. What governs
+the realised support is then **spectral**, and the experiments (`bound_validation.py`)
+are unambiguous:
+
+- **Exact low rank + tiny ridge ⇒ large, n-growing support.** With G₀ of exact rank
+  r = 10 and ε = 1e-5, |S| = 124, 265, 398, 616, 629 for n = 500 … 10000 — it climbs
+  with n, far above q + r + 1 = 12. The cheap, near-degenerate ε-floor subspace gives a
+  flat optimal face the solution spreads across.
+- **The ε = 0 bound is the ε → 0 limit, reached only for ε ≪ the spectral floor.**
+  Fixed r = 10, n = 1500, sweeping the ridge: |S| = 435 (ε=1e-2), 422 (1e-4), 66 (1e-6),
+  **11 (1e-8)** — collapsing to ≤ q+r+1 = 12 only deep below the default ε. Gain is
+  identical across these (~1.574): same flat optimal face, ε selects which representative.
+- **Decaying full spectrum with a floor ≫ ε ⇒ small support — but no clean law.**
+  Full-rank G₀ (rank 799), unit-strength factors: participation ratio
+  3.5 / 6.4 / 12.3 / 24.5 → |S| = 5 / 8 / 12 / 20 (|S| of the order of the effective
+  rank). **But a decay sweep breaks the clean version:** across spectra with
+  participation ratio 1.2–55 at a fixed binding cap, |S| stayed **6–10** (not 1–55) — so
+  the effective rank is *suggestive, not a reliable predictor*. What is robust is only
+  that |S| is **small** and is **not** rank(G₀) or n; no single spectral scalar tracks it.
+
+This is the operative regime for **real** GRMs: a smoothly decaying spectrum with no cheap
+degenerate floor to spread into. There the support is robustly **small and flat in n** (the
+paper's |S| ≈ 15), of the order of the effective rank / number of effective lineages — but,
+per the decay sweep, that is a heuristic, not a proven scalar law. The clean rank theorem
+was an ε = 0 truth oversold as governing the practical problem; the ridge term ε‖c‖² is not
+a harmless regulariser for the support.
 
 ## The growth half (cap → 0)
 
-As k → 0 the optimum approaches the minimum-coancestry point, which must spread mass
-over much of the population to drive cᵀGc down. The genetics quantifies this exactly:
-the rate of inbreeding obeys ΔF ∝ E[Σ cᵢ²] (Wray & Thompson 1990; Woolliams & Bijma
-2000), and Ne ≈ 1/(2ΔF). Tightening the coancestry cap forces Σcᵢ² down, i.e. forces
-contributions to spread — so |S| grows, monotonically, as observed. The optimisation
-side bounds |S| from above (n-independently); the genetics side explains its growth
-along the frontier. A clean theorem should marry the two: |S| as a function of the
-target ΔF / Ne, capped by the rank term.
+As k → 0 the optimum approaches minimum coancestry and must spread mass to drive cᵀGc
+down. The genetics quantifies it: ΔF ∝ E[Σcᵢ²] (Wray & Thompson 1990; Woolliams & Bijma
+2000), Ne ≈ 1/(2ΔF). Tightening k forces Σcᵢ² down, i.e. spreads contributions, so |S|
+grows monotonically, as observed (mouse: 19 → 61 → 133 → 189 → 473 → ~1163 as k → 0).
 
-## Status
+## Status and the open prize
 
-- **Reachable, not yet proved.** The n-independence via rank is a short, standard
-  extreme-point argument once the lifted cone is set up carefully; the tight
-  typical-case |S| is open and is the publishable core.
-- **Most promising single lemma:** an extreme optimum of the OCS SOCP has support
-  bounded by p + (active SOC face dimension) ≤ p + rank(G), independent of n; sharpen
-  the face term toward the observed constant using the structure of G_SS on the
-  support.
-- **Validation in hand:** the support-vs-frontier table (Results) and Waldmann (2025)
-  give the numbers any bound must reproduce.
+- **Proved:** the ε = 0 bound |S| ≤ q + r + 1, n-independent (linearise-on-low-rank-image
+  + LP vertex). Confirmed numerically as the ε → 0 limit.
+- **Open (the prize):** a predictive bound on the **ridged** support. Effective rank /
+  spectral gap is the natural suspect — small support coincides with a decaying spectrum and
+  no cheap degenerate floor — but the decay sweep above shows that no single spectral scalar
+  (participation ratio included) tracks |S| across regimes, so the right quantity is not yet
+  identified. It plausibly couples the spectral gap, b's alignment with the top eigenspace,
+  and the cap k. A spectral-perturbation question — the natural meeting point of optimisation
+  (Alliot: face dimension of the perturbed cone) and genetics (Bouchet: effective number of
+  contributing lineages).
+- **Marrying the halves:** |S| as a function of the target ΔF / Ne, capped by the (still to
+  be identified) spectral quantity above — the publishable characterisation.
 
 ## References (verified)
 
 - Pataki, G. (1998). On the rank of extreme matrices in semidefinite programs…
   *Math. Oper. Res.* 23(2):339–358. DOI 10.1287/moor.23.2.339. — extreme-point rank counting.
-- Markowitz, H. (1956). *Naval Res. Logist. Q.* 3:111–133. DOI 10.1002/nav.3800030110. — the critical-line / corner-portfolio structure (the "grows along the frontier" analogue).
+- Markowitz, H. (1956). *Naval Res. Logist. Q.* 3:111–133. DOI 10.1002/nav.3800030110. — critical-line / corner-portfolio structure (the "grows along the frontier" analogue).
 - Wray, N.R. & Thompson, R. (1990). *Genet. Res.* 55(1):41–54. DOI 10.1017/S0016672300025180. — ΔF ∝ Σ(contribution²).
 - Woolliams, J.A. & Bijma, P. (2000). *Genetics* 154(4):1851–1864. DOI 10.1093/genetics/154.4.1851. — contributions ↔ ΔF ↔ Ne.
 - Yamashita, M., Mullin, T.J. & Safarina, S. (2018). *Optim. Lett.* 12(7):1683–1697. DOI 10.1007/s11590-018-1229-y. — OCS as a single-SOC program (the cone setup).
 - Waldmann, P. (2025). *Bioinform. Adv.* 5(1):vbaf259. DOI 10.1093/bioadv/vbaf259. — independent empirical support counts; post-hoc truncation.
+
+*Numerical evidence: `research/bound_validation.py` (blocks 1–5). Reproduces the solver
+vs scipy check, the ε = 0 bound sweep, the n-independence test, the effective-rank
+tracking, and the ridge sweep above.*

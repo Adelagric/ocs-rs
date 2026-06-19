@@ -39,19 +39,22 @@ candidates (m > n), where streaming the genotype matrix costs more than a reside
 dense product. The matrix-free route is the memory and large-n enabler; the speed
 advantage over the conic solvers is the small active set. Fourth, the
 boundedness of the optimal support is, in this paper, an empirical observation
-across a synthetic sweep and the real panels, not yet a theorem — though the route
-to one appears short. At an optimal extreme point of the simplex (or the
-sex-constrained polytope) with a single active second-order-cone constraint, the
-support is bounded by the number of binding constraints, independent of n, by an
-extreme-point / Carathéodory argument (Barvinok–Pataki rank counting), with the
-low-rank genomic matrix G = ZZᵀ/s (rank ≤ m markers) sharpening the cone-face term;
-the classical genetics of contributions (the Σcᵢ² ↔ rate of inbreeding ↔ effective
-population size lineage) accounts in turn for the growth of the support as the cap
-is tightened. Crucially, this concerns the support of an *extreme* optimum — which
-active-set solvers such as support-first return, whereas interior-point and ADMM
-conic solvers return non-sparse interior points and threshold them post hoc — so
-the bound is a statement about precisely what support-first computes. We develop
-this characterisation in follow-on work. Finally, the solver handles a single
+across a synthetic sweep and the real panels, not yet a theorem, and the
+route is subtler than a constraint count. With no ridge (ε = 0, G = ZZᵀ/s of rank
+r) a clean argument bounds it: the optimum maximises a Lagrangian depending on c
+only through (Zᵀc, bᵀc), so the optimal slice {Ac = d, c ≥ 0, Zᵀc = Zᵀc\*,
+bᵀc = bᵀc\*} is an LP polytope whose vertices carry ≤ q + r + 1 nonzeros — an
+extreme-point / Carathéodory bound, independent of n, on exactly the vertex an
+active-set solver such as support-first returns (interior-point and ADMM solvers
+instead return non-sparse interior points and threshold post hoc). The operative
+ridge ε > 0 makes G full rank, however, and we find numerically that the realised
+support is then not governed by rank(G₀): it stays small (a few dozen at most) and
+flat in n on the panels here, but does not reduce to a single clean spectral
+quantity — the effective rank is suggestive yet, across a sweep of spectra, not a
+reliable predictor — so a tight bound for the ridged problem remains open. The genetics accounts for the growth half: ΔF ∝ Σcᵢ²
+(Wray & Thompson 1990; Woolliams & Bijma 2000) with Ne ≈ 1/(2ΔF), so tightening the
+cap spreads contributions and grows the support, as observed. We develop this
+characterisation in follow-on work. Finally, the solver handles a single
 quadratic kinship constraint, per-candidate contribution caps (0 ≤ c ≤ u), and the
 sex equalities, but not yet several quadratic constraints at once — multiple
 relationship matrices, group-specific coancestry limits — nor the integer mate
