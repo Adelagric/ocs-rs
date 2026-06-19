@@ -86,6 +86,17 @@ per the decay sweep, that is a heuristic, not a proven scalar law. The clean ran
 was an ε = 0 truth oversold as governing the practical problem; the ridge term ε‖c‖² is not
 a harmless regulariser for the support.
 
+**Real GRMs — the missing datapoint** (`bound_real.py`): on the exported wheat (n = 599)
+and mouse (n = 1814) kinship matrices, the support at the working cap is small and of the
+*order* of the participation ratio, but not exactly it. Wheat — PR 28.5, |S| = 25 (simplex)
+/ 26 (optiSel, sexed): a near-match. Mouse — PR 92.3, |S| = 17 (simplex) / 26 (sexed): same
+order, PR over-predicting ~3–5×. Stable rank (1.5, 3.8, dominated by λ₁ ≈ 45–50) is far too
+small to be the proxy. The cap moves |S| strongly at fixed spectrum (wheat 67 → 25 → 13 → 6
+as it loosens). So on real data too the effective rank sets the *scale* (tens) while the cap
+and b's alignment set the rest — no single scalar pins |S|, consistent with the synthetic
+sweep. (A cross-check falls out: simplex |S| = 25 vs optiSel's sexed 26 on the real wheat K
+— the support is robust across the formulation.)
+
 ## The growth half (cap → 0)
 
 As k → 0 the optimum approaches minimum coancestry and must spread mass to drive cᵀGc
@@ -118,6 +129,7 @@ grows monotonically, as observed (mouse: 19 → 61 → 133 → 189 → 473 → ~
 - Yamashita, M., Mullin, T.J. & Safarina, S. (2018). *Optim. Lett.* 12(7):1683–1697. DOI 10.1007/s11590-018-1229-y. — OCS as a single-SOC program (the cone setup).
 - Waldmann, P. (2025). *Bioinform. Adv.* 5(1):vbaf259. DOI 10.1093/bioadv/vbaf259. — independent empirical support counts; post-hoc truncation.
 
-*Numerical evidence: `research/bound_validation.py` (blocks 1–5). Reproduces the solver
-vs scipy check, the ε = 0 bound sweep, the n-independence test, the effective-rank
-tracking, and the ridge sweep above.*
+*Numerical evidence: `research/bound_validation.py` (blocks 1–6: solver vs scipy, the
+ε = 0 bound sweep, n-independence, the effective-rank behaviour, the ridge sweep, and a
+spectral-decay sweep) and `research/bound_real.py` (the wheat and mouse GRMs above, after
+the `research/repro/*_export.R` exports).*
