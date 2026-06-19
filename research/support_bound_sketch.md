@@ -1,201 +1,153 @@
-# Toward a bound on the OCS support size
+# On the support size of the genomic OCS optimum
 
-> Working note — turning the empirical observation (|S| small, bounded in n) into
-> theory, with the subtleties stated honestly and **checked numerically**
-> (`research/bound_validation.py`). Not a finished paper. The headline correction:
-> the clean rank bound is an **ε = 0** statement; at the operative ridge the realised
-> support is governed by the **effective (spectral) rank**, not by rank(G₀). Seed for
-> the theory follow-on and the INRAE / optimisation (Alliot) collaboration.
+> A self-contained note — a proof, a counterexample, and the empirical regime — for the
+> number of individuals an optimum-contribution-selection optimum activates. Companion to
+> the support-first solver (`MANUSCRIPT.md`). Every empirical claim is reproducible; the
+> scripts are listed under *Numerical evidence*.
 
-## The object
+## 1. The question
 
-Sexed OCS is the second-order cone program
+Genomic optimum contribution selection (OCS) solves, for n candidates with breeding values
+**b** ∈ ℝⁿ and relationship matrix **G = ZZᵀ/s + εI** (with **Z** the n×m centred genotype
+matrix, s a scale, ε a small ridge for positive-definiteness),
 
-  maximise **bᵀc**  s.t.  **A c = d**  (q rows: q = 1 simplex, q = 2 sexed),
-  **c ≥ 0**,  **cᵀGc ≤ k**,   with **G = G₀ + εI**, **G₀ = ZZᵀ/s**, **Z** ∈ ℝ^{n×m}.
+  maximise **bᵀc**  s.t.  **Ac = d**,  **0 ≤ c ≤ u**,  **cᵀGc ≤ k**,    (OCS)
 
-Let S = supp(c\*) at the optimum. We observe (Results; Waldmann 2025): |S| is small
-(≈15 at a working cap), bounded as n grows (14–19 up to n = 40000 at a fixed cap),
-and grows monotonically as k is tightened toward zero coancestry.
+where **A** is the q×n budget matrix (q = 1 for the simplex 𝟙ᵀc = 1; q = 2 for the sexed
+form Σ_males = Σ_females = ½). Empirically the optimum **c\*** activates very few
+candidates: its support S = {i : c\*ᵢ > 0} is ≈ 15–30 on real panels and stays bounded as n
+grows at a fixed cap. What bounds |S|?
 
-## Loose cap — clean
+The answer is a **bracket**. In the no-ridge limit there is a clean n-independent bound
+(Theorem 1). Once the ridge is present there is provably **no** universal bound — the
+support can be the whole population (Theorem 2). The practical regime between them is set by
+the joint geometry of (spectrum, **b**, cap k); it admits no single-scalar law, and we map
+it empirically (§5). A KKT identity (§4) bridges the two theorems.
 
-If cᵀGc\* < k the active set near c\* is just {A c = d, c ≥ 0}: a polytope, c\* an LP
-vertex with q equality rows, so **|S| ≤ q**. The unconstrained sexed optimum puts all
-mass on the best male and the best female (|S| = 2). The loose end of the frontier.
+## 2. Theorem 1 — the ε = 0 bound
 
-## Binding cap — the trap
+**Theorem 1.** *For ε = 0 (so* **G** = **G₀** = **ZZᵀ**/s *of rank r ≤ m), (OCS) has an
+optimal* **c\*** *with* **|S| ≤ q + r + 1**, *independent of n.*
 
-When cᵀGc\* = k, c\* lies on the *curved* ellipsoid boundary. A naive count (|S| free,
-minus q equalities, minus 1 active quadratic ⇒ |S| = q + 1) is **wrong**: that is the
-count for *linear* active constraints. The quadratic surface is strictly curved, so
-**every** point on it (∩ a coordinate face) is already extreme — curvature, not a
-0-dimensional vertex, makes it extreme. So "extreme point of F" alone gives **no**
-support bound. Any honest statement must dodge this.
+*Proof.* By strong duality (Slater holds at any interior-feasible instance) there is a
+multiplier λ\* ≥ 0 such that **c\*** maximises the Lagrangian L(**c**) = **bᵀc** −
+λ\* **cᵀG₀c** over the polytope {**Ac = d**, **c ≥ 0**}. Since **cᵀG₀c** = ‖**Zᵀc**‖²/s, the
+value L(**c**) depends on **c** only through the pair (**Zᵀc**, **bᵀc**) ∈ ℝ^{r+1}. Hence
+the slice
 
-## The ε = 0 theorem (this part is proved)
+  P = { **c ≥ 0** : **Ac = d**, **Zᵀc = Zᵀc\***, **bᵀc = bᵀc\*** }
 
-Take ε = 0, so G = G₀ = ZZᵀ/s with rank r ≤ m.
+is **entirely optimal**: every **c** ∈ P is feasible (**cᵀG₀c** = ‖**Zᵀc\***‖²/s ≤ k) and
+attains the optimal value **bᵀc\***. P is a nonempty (it contains **c\***), bounded (the
+budget plus **c ≥ 0**) polytope cut by q + r + 1 equality rows, so it has a vertex, and a
+vertex of {**c ≥ 0** : **Mc = e**} with q + r + 1 rows has at most q + r + 1 nonzeros. That
+vertex is an optimum with the stated support. ∎
 
-**Claim.** *There exists an optimal c\* with* **|S| ≤ q + r + 1**, *independent of n.*
+This is the Carathéodory / Barvinok–Pataki idea applied correctly: one does *not* count on
+the curved boundary of the ellipsoid (where, **G** being positive definite, every point is
+already an extreme point of the feasible set and the support is unconstrained) — instead one
+**fixes the low-rank image Zᵀc and the objective**, which makes the optimal slice affine, and
+counts LP vertices there. Active-set solvers (support-first; the critical line algorithm)
+return such a vertex, whereas interior-point and ADMM solvers return non-sparse interior
+points and threshold post hoc — so the bound is a statement about precisely what an
+active-set solver computes.
 
-**Proof.** By strong duality (Slater) there is λ\* ≥ 0 with c\* maximising the
-Lagrangian L(c) = bᵀc − λ\*·cᵀG₀c over the polytope {A c = d, c ≥ 0}. Since
-cᵀG₀c = ‖Zᵀc‖²/s, **L depends on c only through (Zᵀc, bᵀc) ∈ ℝ^{r+1}.** Define
+## 3. Theorem 2 — no universal bound for ε > 0
 
-  P = { c ≥ 0 : A c = d,  Zᵀc = Zᵀc\*,  bᵀc = bᵀc\* }.
+**Theorem 2.** *For ε > 0 no bound on |S| of the form f(q, r) independent of n exists: the
+support can equal n.*
 
-Every c ∈ P is feasible (cᵀG₀c = ‖Zᵀc\*‖²/s ≤ k) and attains the optimum (bᵀc = bᵀc\*),
-so **all of P is optimal.** P is a bounded, nonempty polytope cut by q + r + 1 equality
-rows (A, then Zᵀ contributing r independent rows, then bᵀ), so it has a vertex with
-≤ q + r + 1 nonzeros. That vertex is an optimum with the stated support. ∎
+*Proof (counterexample).* Take **G** = εI — the degenerate case m = 0 (no markers, every pair
+equally unrelated; equivalently rank(**G₀**) = 0). Then (OCS), simplex form, is
 
-This is the Carathéodory / Barvinok–Pataki idea done **correctly**: don't count on the
-curved boundary — **fix the low-rank image Zᵀc and the objective**, which linearises the
-optimal slice, then count LP vertices. And it is a statement about *exactly* what an
-active-set solver returns (a vertex), unlike interior-point / ADMM solvers, which return
-non-sparse interior points and threshold post hoc (Waldmann 2025 truncates at 1e-4).
+  maximise **bᵀc**  s.t.  𝟙ᵀ**c** = 1, **c ≥ 0**, ε‖**c**‖² ≤ k,
 
-## The ε > 0 reality — the ridge rewrites the support (numerically established)
+and ‖**c**‖² = Σ c²ᵢ is exactly the rate-of-inbreeding proxy. The minimum of ‖**c**‖² on the
+simplex is 1/n, attained only at the uniform plan **c** = 𝟙/n. For k slightly above ε/n the
+feasible set is the simplex intersected with a ball that shrinks onto 𝟙/n, forcing |S| = n.
+Numerically (`bound_validation.py`, block 7, n = 300): |S| = 300, 295, 256, 151, 52, 12 as k
+loosens from 1.05× to 50× the minimum. So |S| ranges over the whole interval [1, n] with no
+n-independent ceiling. ∎
 
-The theorem is for ε = 0. The solver — and any PD-requiring method — uses ε > 0, which
-makes **G full rank n**, so rank(G₀) no longer bounds the *solved* problem. What governs
-the realised support is then **spectral**, and the experiments (`bound_validation.py`)
-are unambiguous:
+Genetically, **G** = εI is the *no-structure* limit; with no relatedness pattern the
+diversity cap can be met only by spreading contributions over the whole population. The
+small support seen on real data is therefore a property of the **structure** of **G** (and of
+**b**), not a worst-case guarantee.
 
-- **Exact low rank + tiny ridge ⇒ large, n-growing support.** With G₀ of exact rank
-  r = 10 and ε = 1e-5, |S| = 124, 265, 398, 616, 629 for n = 500 … 10000 — it climbs
-  with n, far above q + r + 1 = 12. The cheap, near-degenerate ε-floor subspace gives a
-  flat optimal face the solution spreads across.
-- **The ε = 0 bound is the ε → 0 limit, reached only for ε ≪ the spectral floor.**
-  Fixed r = 10, n = 1500, sweeping the ridge: |S| = 435 (ε=1e-2), 422 (1e-4), 66 (1e-6),
-  **11 (1e-8)** — collapsing to ≤ q+r+1 = 12 only deep below the default ε. Gain is
-  identical across these (~1.574): same flat optimal face, ε selects which representative.
-- **Decaying full spectrum with a floor ≫ ε ⇒ small support — but no clean law.**
-  Full-rank G₀ (rank 799), unit-strength factors: participation ratio
-  3.5 / 6.4 / 12.3 / 24.5 → |S| = 5 / 8 / 12 / 20 (|S| of the order of the effective
-  rank). **But a decay sweep breaks the clean version:** across spectra with
-  participation ratio 1.2–55 at a fixed binding cap, |S| stayed **6–10** (not 1–55) — so
-  the effective rank is *suggestive, not a reliable predictor*. What is robust is only
-  that |S| is **small** and is **not** rank(G₀) or n; no single spectral scalar tracks it.
+## 4. The bridge — a KKT identity
 
-This is the operative regime for **real** GRMs: a smoothly decaying spectrum with no cheap
-degenerate floor to spread into. There the support is robustly **small and flat in n** (the
-paper's |S| ≈ 15), of the order of the effective rank / number of effective lineages — but,
-per the decay sweep, that is a heuristic, not a proven scalar law. The clean rank theorem
-was an ε = 0 truth oversold as governing the practical problem; the ridge term ε‖c‖² is not
-a harmless regulariser for the support.
+**Proposition.** *At an optimum with the kinship constraint active, the contributions on the
+support are an affine function of each candidate's augmented feature* (bᵢ, **zᵢ**) ∈ ℝ^{m+1}
+*(* **zᵢ** *the i-th row of* **Z** *):*  **c\*ᵢ = α bᵢ + wᵀzᵢ + β_{sex(i)}**  *for i ∈ S.*
 
-**Real GRMs — the missing datapoint** (`bound_real.py`): on the exported wheat (n = 599)
-and mouse (n = 1814) kinship matrices, the support at the working cap is small and of the
-*order* of the participation ratio, but not exactly it. Wheat — PR 28.5, |S| = 25 (simplex)
-/ 26 (optiSel, sexed): a near-match. Mouse — PR 92.3, |S| = 17 (simplex) / 26 (sexed): same
-order, PR over-predicting ~3–5×. Stable rank (1.5, 3.8, dominated by λ₁ ≈ 45–50) is far too
-small to be the proxy. The cap moves |S| strongly at fixed spectrum (wheat 67 → 25 → 13 → 6
-as it loosens). So on real data too the effective rank sets the *scale* (tens) while the cap
-and b's alignment set the rest — no single scalar pins |S|, consistent with the synthetic
-sweep. (A cross-check falls out: simplex |S| = 25 vs optiSel's sexed 26 on the real wheat K
-— the support is robust across the formulation.)
+*Proof.* KKT gives μ ∈ ℝ^q, λ ≥ 0, **s ≥ 0** with **b** = **Aᵀμ** + 2λ**Gc\*** − **s** and
+sᵢc\*ᵢ = 0. On S (sᵢ = 0): bᵢ = (**Aᵀμ**)ᵢ + 2λ(**Gc\***)ᵢ. Writing **y** := **Zᵀc\*** and using
+**Gc\*** = **Z**y/s + ε**c\*** gives, for i ∈ S,
+ε c\*ᵢ = (bᵢ − (**Aᵀμ**)ᵢ)/(2λ) − (**zᵢ**ᵀ**y**)/s, i.e. **c\*ᵢ = α bᵢ + wᵀzᵢ + β_{sex(i)}**
+with α = 1/(2λε), **w** = −**y**/(sε), β_{sex(i)} = −(**Aᵀμ**)ᵢ/(2λε). ∎
 
-**Isolating b's alignment** (`bound_balign.py`): with G *and* the cap held fixed, sweeping
-only how the objective b aligns with G's eigenbasis settles which factor moves |S| — and the
-relation is **inverse**. Putting b on the single dominant eigenvector (the most
-coancestry-expensive direction, λ₁) forces a large support (mean |S| ≈ 146 of n = 800);
-spreading b across many eigendirections, including cheap low-λ ones, collapses it to ≈ 4–5.
-Mechanism: gain sought in an expensive direction must be diluted over many candidates to
-respect the cap, whereas an objective weighted toward cheap directions concentrates. So the
-support is driven by **b's projection onto the spectrum — alignment with the top (expensive)
-eigenspace inflates it** — not by G's effective rank alone. This is exactly what the
-spectrum-only proxies (rank, participation ratio) miss, and it explains how two panels of
-very different effective rank (wheat 28, mouse 92) can share |S| ≈ 26: what matters is where
-each b sits in its own spectrum. A predictive bound must therefore couple b and Λ — the
-cost-adjusted object G^{-1/2}b is the natural candidate.
+The support's contributions thus live on an (m + 2)-parameter family. As ε → 0 the εc\*ᵢ term
+vanishes and the identity forces **b** − **Aᵀμ** into the rank-r row space of **Z**,
+recovering Theorem 1 and exhibiting m (the marker count) as the relevant dimension. For
+ε > 0 the same identity does **not** cap |S| — consistent with Theorem 2.
 
-**Is there a single predictor?** (`bound_predictor.py`) Tested across a sweep varying both
-the spectrum and b's alignment, plus the real panels: **no single scalar is clean.** The
-cost-adjusted PR((G⁻¹b)₊) leads on synthetic (Pearson 0.77) but collapses on real data; the
-directional cost b'Gb/b'b is the best single *monotone* indicator (Spearman 0.68, right sign,
-and qualitatively right on real — mouse, b on cheap directions, |S| = 17; wheat, b costlier,
-|S| = 25) yet incomplete: at *equal* b'Gb a steeper spectrum inflates |S| dramatically
-(flat-spectrum, b = u₁: |S| = 7; steep-spectrum, b = u₁: |S| = 413). So the support is
-**irreducibly joint** in (b's alignment, the spectral gap, the cap) — the bound is a function
-of that triple, not of any one scalar. That is the precise open statement, and a sharper,
-truer one than "effective rank." A two-parameter reduction does not rescue it either
-(`bound_lawfit.py`): the best dimensionless combination, |S| ~ (b'Gb/b'b · 1/k)^0.8, reaches
-only R² ≈ 0.58 and mispredicts the real panels' *relative* support — their directional-cost
-ratio differs ~100× (wheat 66, mouse 0.66) yet |S| is 25 vs 17. So the support resists even a
-closed-form scalar law; it appears to need the full coancestry-vs-support profile (the whole
-spectrum and b together), and the clean, provable statement stays the ε = 0 bound.
+## 5. The empirical regime between the theorems
 
-Reframing to the curve does not rescue universality either (`bound_curve.py`): |S|(k) is a
-clean *per-instance* power law, |S| ~ k^{−α} (R² ≈ 0.9–0.98 where the support is well
-resolved), but the exponent α is itself joint — ≈ 1 on both real panels, yet ranging 0.5–1.7
-across synthetic spectra and alignments. So no level — value, scalar, two-parameter ratio, or
-curve exponent — reduces the ridged support to a universal form. The provable statement is
-the ε = 0 bound; the ridged characterisation needs the full (spectrum, b, k) geometry, which
-is the honest open problem to hand to a quant-gen / optimisation collaborator.
+Between the two clean statements lies the regime breeders actually use, which we mapped
+across synthetic spectra, b-alignments and caps and on the real panels. The findings:
 
-## The growth half (cap → 0)
+- **What drives |S| is b's alignment with the spectrum, inversely.** With **G** and k held
+  fixed, putting **b** on the dominant (coancestry-expensive) eigendirection forces a large
+  support (mean |S| ≈ 146 of n = 800 for **b** = top eigenvector); spreading **b** across many
+  cheap directions collapses it to ≈ 4. Gain sought in an expensive direction must be diluted
+  over many candidates to respect the cap (`bound_balign.py`).
+- **No single scalar predicts |S| across regimes.** Neither rank(**G₀**), the effective rank
+  / participation ratio of the spectrum, the directional cost **bᵀGb/bᵀb**, nor the support of
+  the unconstrained direction (**G⁻¹b**)₊ tracks |S| across both synthetic and real instances;
+  the best dimensionless combination, |S| ∼ (**bᵀGb**/**bᵀb** · 1/k)^{0.8}, reaches only
+  R² ≈ 0.58 and mispredicts the real panels' relative support (`bound_predictor.py`,
+  `bound_lawfit.py`).
+- **The curve |S|(k) is a per-instance power law of non-universal exponent.** |S| ∼ k^{−α}
+  fits each instance well (R² ≈ 0.9–0.98 where the support is well resolved), with α ≈ 1 on
+  both real panels but ranging 0.5–1.7 across synthetic spectra and alignments
+  (`bound_curve.py`).
+- **Real panels.** Wheat (n = 599) and mouse (n = 1814): |S| = 25 / 26 and 17 / 26
+  (simplex / sexed-optiSel) at the working cap, both of the order of tens — small and stable
+  in n, as the spectrum-with-decay regime predicts qualitatively, though (per the above) no
+  formula pins the value (`bound_real.py`).
 
-As k → 0 the optimum approaches minimum coancestry and must spread mass to drive cᵀGc
-down. The genetics quantifies it: ΔF ∝ E[Σcᵢ²] (Wray & Thompson 1990; Woolliams & Bijma
-2000), Ne ≈ 1/(2ΔF). Tightening k forces Σcᵢ² down, i.e. spreads contributions, so |S|
-grows monotonically, as observed (mouse: 19 → 61 → 133 → 189 → 473 → ~1163 as k → 0).
+Theorem 2 explains *why* no scalar law exists: there is no universal bound to predict, so the
+practical value is genuinely a function of the full (spectrum, **b**, k) geometry.
 
-## Analytic verdict: a proof and a counterexample
+## 6. Open problem
 
-Stationarity pins the structure. At the optimum with the quadratic active, KKT gives, for
-i ∈ S: bᵢ = μ + 2λ(Gc\*)ᵢ. With G = ZZᵀ/s + εI and y := Zᵀc\*, this rearranges to
-**c\*ᵢ = α bᵢ + wᵀzᵢ + β** on the support — the contributions are an *affine function of each
-candidate's augmented feature* (bᵢ, zᵢ) ∈ ℝ^{m+1} (α = 1/(2λε), w = −y/(sε), β = −μ/(2λε)).
-At ε = 0 this collapses to the linearise-on-low-rank-image argument and |S| ≤ q + rank(G₀) +
-1; the support's values live on an (m+2)-parameter family, so m (markers) is the relevant
-dimension.
+The universal question is closed (negatively, Theorem 2); the useful one is **conditional**:
+under structural assumptions that real genomic relationship matrices satisfy — a spectrum that
+decays with no large degenerate floor, and a breeding-value vector not concentrated on the top
+eigendirections — prove |S| ≤ (something small, n-independent). A natural route couples the
+spectral gap with **b**'s projection onto the top eigenspace; the growth half (|S| increasing
+as k → 0) is governed in turn by the classical contributions ↔ ΔF ↔ Nₑ link (Wray & Thompson
+1990; Woolliams & Bijma 2000). This is the meeting point of optimisation (the face dimension
+of the perturbed second-order cone) and quantitative genetics (the effective number of
+contributing lineages).
 
-**But for ε > 0 there is no non-trivial bound — provable by counterexample.** Take G = εI
-(m = 0: no markers, everyone equally unrelated). OCS becomes max bᵀc s.t. Σc = 1, c ≥ 0,
-ε‖c‖² ≤ k — and ‖c‖² = Σcᵢ² *is* the rate-of-inbreeding proxy. Just above the uniform minimum
-‖c‖² = 1/n the feasible ball hugs c = 1/n, forcing full support: numerically (`bound_validation.py`
-block 7, n = 300) |S| = 300, 295, 256, 151, 52, 12 as k loosens from 1.05× to 50× the minimum.
-So the ridge alone drives |S| from n down to 1 — **no n-independent upper bound holds for
-ε > 0.** Genetically this is the no-structure limit: with no relatedness pattern, the diversity
-cap can only be met by spreading over everyone.
+## Numerical evidence (reproducible)
 
-This **unifies the empirical negatives**: no scalar, ratio, or curve law predicts |S| *because
-there is no universal bound to predict* — the worst case is genuinely |S| ~ n. The small,
-stable support on real panels is a property of their **structure** (a decaying spectrum, a
-benign b-alignment), not a guarantee. The two clean, provable statements are the ε = 0 bound
-and this no-bound counterexample; everything between is data-dependent, set by the full
-(spectrum, b, k) geometry.
+- `bound_validation.py` — solver vs SciPy; the ε = 0 bound; n-independence; the effective-rank
+  behaviour; the ridge sweep; a spectral-decay sweep; and (block 7) the Theorem-2
+  counterexample.
+- `bound_real.py` — wheat and mouse kinship matrices (after `research/repro/*_export.R`).
+- `bound_balign.py` — the b-alignment sweep at fixed **G** and cap.
+- `bound_predictor.py` — the cross-regime scalar-predictor search.
+- `bound_lawfit.py` — the dimensionless law fit.
+- `bound_curve.py` — the per-instance |S|(k) power-law fit.
 
-## Status and the open prize
-
-- **Proved:** the ε = 0 bound |S| ≤ q + r + 1, n-independent (linearise-on-low-rank-image
-  + LP vertex). Confirmed numerically as the ε → 0 limit.
-- **Open (the prize):** a predictive bound on the **ridged** support. Effective rank /
-  spectral gap is the natural suspect — small support coincides with a decaying spectrum and
-  no cheap degenerate floor — but the decay sweep above shows that no single spectral scalar
-  (participation ratio included) tracks |S| across regimes, so the right quantity is not yet
-  identified. It plausibly couples the spectral gap, b's alignment with the top eigenspace,
-  and the cap k. A spectral-perturbation question — the natural meeting point of optimisation
-  (Alliot: face dimension of the perturbed cone) and genetics (Bouchet: effective number of
-  contributing lineages).
-- **Marrying the halves:** |S| as a function of the target ΔF / Ne, capped by the (still to
-  be identified) spectral quantity above — the publishable characterisation.
-
-## References (verified)
+## References
 
 - Pataki, G. (1998). On the rank of extreme matrices in semidefinite programs…
   *Math. Oper. Res.* 23(2):339–358. DOI 10.1287/moor.23.2.339. — extreme-point rank counting.
-- Markowitz, H. (1956). *Naval Res. Logist. Q.* 3:111–133. DOI 10.1002/nav.3800030110. — critical-line / corner-portfolio structure (the "grows along the frontier" analogue).
+- Markowitz, H. (1956). *Naval Res. Logist. Q.* 3:111–133. DOI 10.1002/nav.3800030110. — critical-line / corner-portfolio structure.
 - Wray, N.R. & Thompson, R. (1990). *Genet. Res.* 55(1):41–54. DOI 10.1017/S0016672300025180. — ΔF ∝ Σ(contribution²).
-- Woolliams, J.A. & Bijma, P. (2000). *Genetics* 154(4):1851–1864. DOI 10.1093/genetics/154.4.1851. — contributions ↔ ΔF ↔ Ne.
-- Yamashita, M., Mullin, T.J. & Safarina, S. (2018). *Optim. Lett.* 12(7):1683–1697. DOI 10.1007/s11590-018-1229-y. — OCS as a single-SOC program (the cone setup).
+- Woolliams, J.A. & Bijma, P. (2000). *Genetics* 154(4):1851–1864. DOI 10.1093/genetics/154.4.1851. — contributions ↔ ΔF ↔ Nₑ.
+- Yamashita, M., Mullin, T.J. & Safarina, S. (2018). *Optim. Lett.* 12(7):1683–1697. DOI 10.1007/s11590-018-1229-y. — OCS as a single second-order-cone program.
 - Waldmann, P. (2025). *Bioinform. Adv.* 5(1):vbaf259. DOI 10.1093/bioadv/vbaf259. — independent empirical support counts; post-hoc truncation.
-
-*Numerical evidence: `research/bound_validation.py` (blocks 1–6: solver vs scipy, the
-ε = 0 bound sweep, n-independence, the effective-rank behaviour, the ridge sweep, and a
-spectral-decay sweep), `research/bound_real.py` (wheat and mouse GRMs, after the
-`research/repro/*_export.R` exports), `research/bound_balign.py` (the b-alignment sweep), `research/bound_predictor.py`
-(the cross-regime predictor search), `research/bound_lawfit.py` (the dimensionless
-law fit), and `research/bound_curve.py` (the per-instance |S|(k) power-law fit).*

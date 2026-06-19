@@ -133,9 +133,10 @@ exploits exactly that. Clarabel is kept as an independent cross-check oracle.
 `b` is a recorded phenotype or EBV standing in for a true genomic breeding value
 on the public panels; a genuine recorded sex exists only for the mouse panel
 (arbitrary balanced split elsewhere); the optiSel head-to-head times a NumPy
-prototype against R (the gap is algorithmic, not language); the support bound is
-empirical here, though an extreme-point / low-rank argument sketches a route to a
-theorem ([`research/support_bound_sketch.md`](research/support_bound_sketch.md));
+prototype against R (the gap is algorithmic, not language); the optimal support is
+empirically small and bounded in n — proved n-independent in the no-ridge limit, with a
+counterexample showing no universal bound survives the ridge
+([`research/support_bound_sketch.md`](research/support_bound_sketch.md));
 and the solver handles a single quadratic constraint and continuous contributions —
 per-candidate caps `c ≤ u` are supported, but multiple quadratic constraints and
 integer mate allocation are not. These are stated in the manuscript's Discussion.
