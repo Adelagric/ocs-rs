@@ -142,6 +142,32 @@ down. The genetics quantifies it: ΔF ∝ E[Σcᵢ²] (Wray & Thompson 1990; Woo
 2000), Ne ≈ 1/(2ΔF). Tightening k forces Σcᵢ² down, i.e. spreads contributions, so |S|
 grows monotonically, as observed (mouse: 19 → 61 → 133 → 189 → 473 → ~1163 as k → 0).
 
+## Analytic verdict: a proof and a counterexample
+
+Stationarity pins the structure. At the optimum with the quadratic active, KKT gives, for
+i ∈ S: bᵢ = μ + 2λ(Gc\*)ᵢ. With G = ZZᵀ/s + εI and y := Zᵀc\*, this rearranges to
+**c\*ᵢ = α bᵢ + wᵀzᵢ + β** on the support — the contributions are an *affine function of each
+candidate's augmented feature* (bᵢ, zᵢ) ∈ ℝ^{m+1} (α = 1/(2λε), w = −y/(sε), β = −μ/(2λε)).
+At ε = 0 this collapses to the linearise-on-low-rank-image argument and |S| ≤ q + rank(G₀) +
+1; the support's values live on an (m+2)-parameter family, so m (markers) is the relevant
+dimension.
+
+**But for ε > 0 there is no non-trivial bound — provable by counterexample.** Take G = εI
+(m = 0: no markers, everyone equally unrelated). OCS becomes max bᵀc s.t. Σc = 1, c ≥ 0,
+ε‖c‖² ≤ k — and ‖c‖² = Σcᵢ² *is* the rate-of-inbreeding proxy. Just above the uniform minimum
+‖c‖² = 1/n the feasible ball hugs c = 1/n, forcing full support: numerically (`bound_validation.py`
+block 7, n = 300) |S| = 300, 295, 256, 151, 52, 12 as k loosens from 1.05× to 50× the minimum.
+So the ridge alone drives |S| from n down to 1 — **no n-independent upper bound holds for
+ε > 0.** Genetically this is the no-structure limit: with no relatedness pattern, the diversity
+cap can only be met by spreading over everyone.
+
+This **unifies the empirical negatives**: no scalar, ratio, or curve law predicts |S| *because
+there is no universal bound to predict* — the worst case is genuinely |S| ~ n. The small,
+stable support on real panels is a property of their **structure** (a decaying spectrum, a
+benign b-alignment), not a guarantee. The two clean, provable statements are the ε = 0 bound
+and this no-bound counterexample; everything between is data-dependent, set by the full
+(spectrum, b, k) geometry.
+
 ## Status and the open prize
 
 - **Proved:** the ε = 0 bound |S| ≤ q + r + 1, n-independent (linearise-on-low-rank-image

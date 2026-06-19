@@ -176,3 +176,20 @@ for alpha in [0.0, 0.5, 1.0, 2.0, 4.0]:
 print("  (alpha 0=flat .. 4=steep. |S| rises and falls with the effective rank")
 print("   (participation ratio), NOT with full rank ~min(m,n)=800 — the law a")
 print("   theorem for the ridged problem must reproduce.)")
+
+# === (7) no ridged bound: pure ridge G = eps*I forces |S| -> n at a tight cap ==
+# Analytic witness that the eps>0 support has NO non-trivial upper bound. With m=0
+# (G = eps*I, everyone unrelated) OCS is  max b'c s.t. simplex, eps||c||^2 <= k —
+# and ||c||^2 = sum c_i^2 IS the rate-of-inbreeding proxy. Near the uniform minimum
+# the feasible ball hugs c = 1/n, forcing full support. So |S| can reach n: the
+# ridge alone defeats any n-independent bound, and small support is a property of
+# the data's STRUCTURE, not a guarantee.
+print("\n=== (7) pure-ridge counterexample G = eps*I (n=300, m=0): |S| vs cap ===")
+RIDGE = 1.0
+nn = 300; Zc = np.zeros((nn, 0)); sc = 1.0
+bb = np.random.default_rng(0).standard_normal(nn); kmn = 1.0 / nn   # uniform ||c||^2
+print(f"  {'k/kmin':>8} {'|S|':>5}   (kmin = 1/n = {kmn:.4f}; |S| -> n as k -> kmin)")
+for kf in [1.05, 1.2, 1.6, 3.0, 10.0, 50.0]:
+    c, S, it, npd = support_first(Zc, sc, bb, kf * kmn)
+    print(f"  {kf:>8.2f} {len(S):>5}")
+print("  (|S| spans ~n (tight) down to 1 (loose): no n-independent bound for eps>0.)")
