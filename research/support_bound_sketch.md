@@ -120,7 +120,12 @@ and qualitatively right on real — mouse, b on cheap directions, |S| = 17; whea
 (flat-spectrum, b = u₁: |S| = 7; steep-spectrum, b = u₁: |S| = 413). So the support is
 **irreducibly joint** in (b's alignment, the spectral gap, the cap) — the bound is a function
 of that triple, not of any one scalar. That is the precise open statement, and a sharper,
-truer one than "effective rank."
+truer one than "effective rank." A two-parameter reduction does not rescue it either
+(`bound_lawfit.py`): the best dimensionless combination, |S| ~ (b'Gb/b'b · 1/k)^0.8, reaches
+only R² ≈ 0.58 and mispredicts the real panels' *relative* support — their directional-cost
+ratio differs ~100× (wheat 66, mouse 0.66) yet |S| is 25 vs 17. So the support resists even a
+closed-form scalar law; it appears to need the full coancestry-vs-support profile (the whole
+spectrum and b together), and the clean, provable statement stays the ε = 0 bound.
 
 ## The growth half (cap → 0)
 
@@ -157,5 +162,6 @@ grows monotonically, as observed (mouse: 19 → 61 → 133 → 189 → 473 → ~
 *Numerical evidence: `research/bound_validation.py` (blocks 1–6: solver vs scipy, the
 ε = 0 bound sweep, n-independence, the effective-rank behaviour, the ridge sweep, and a
 spectral-decay sweep), `research/bound_real.py` (wheat and mouse GRMs, after the
-`research/repro/*_export.R` exports), `research/bound_balign.py` (the b-alignment sweep), and
-`research/bound_predictor.py` (the cross-regime predictor search).*
+`research/repro/*_export.R` exports), `research/bound_balign.py` (the b-alignment sweep), `research/bound_predictor.py`
+(the cross-regime predictor search), and `research/bound_lawfit.py` (the dimensionless
+law fit).*
