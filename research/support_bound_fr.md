@@ -151,6 +151,18 @@ Prouver la borne — coupler le gap spectral à la projection de b sur le sous-e
 résistant à la courbure de la queue — est le problème ouvert, point de rencontre de l'optimisation
 (la face du cône perturbé) et de la génétique quantitative (lignées effectives).
 
+**Une prise exacte sur le support effectif.** Écrivons le nombre *effectif* de contributeurs comme le
+ratio de participation PR(c\*) = 1/‖c\*‖² (égal à |S| pour des contributions uniformes, moindre quand
+elles sont inégales). Au cap actif avec Σc\* = 1, une identité tient : **PR(c\*) = R(c\*)/k**, où
+R(c\*) = c\*ᵀGc\*/c\*ᵀc\* est le quotient de Rayleigh propre de l'optimum (car R·‖c\*‖² = c\*ᵀGc\* = k).
+Donc **PR(c\*) ≤ λ₁/k** sans condition, et la borne conditionnelle *se réduit à borner R(c\*)* — le
+coût directionnel de coancestrie que l'optimum est forcé d'encaisser. C'est exactement là qu'agit
+(A2) : quand b évite les directions dominantes, c\* vit dans la partie bon marché du spectre et R(c\*)
+est petit (mesuré : R ≈ 0,02–0,4 sur les cas structurés contre λ₁ ≈ 45–143, donnant PR ≈ 2–12), tandis
+que G = εI force R = ε = λ₁ et PR = n. La pièce ouverte résiduelle est désormais nette et scalaire —
+borner R(c\*) a priori sous (A1)+(A2). (La cardinalité brute |S| vaut ≈ 1,5–2,5× PR ici ; PR est la
+quantité à loi propre.) Vérifié dans `bound_kernel.py`.
+
 ## Évidence numérique (reproductible)
 
 `bound_validation.py` (la borne ε=0, la n-indépendance, les balayages ridge et décroissance

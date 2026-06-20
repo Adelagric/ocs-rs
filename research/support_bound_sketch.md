@@ -151,6 +151,18 @@ Bijma 2000). Proving the bound — coupling the spectral gap with b's projection
 eigenspace, robust to the tail's curvature — is the open problem, the meeting point of optimisation
 (the perturbed-cone face) and quantitative genetics (effective lineages).
 
+**An exact handle on the effective support.** Write the *effective* number of contributors as the
+participation ratio PR(c\*) = 1/‖c\*‖² (it equals |S| for uniform contributions, less when they are
+uneven). At the active cap with Σc\* = 1 an identity holds: **PR(c\*) = R(c\*)/k**, where
+R(c\*) = c\*ᵀGc\*/c\*ᵀc\* is the optimum's own Rayleigh quotient (since R·‖c\*‖² = c\*ᵀGc\* = k).
+Hence **PR(c\*) ≤ λ₁/k** unconditionally, and the conditional bound *reduces to bounding R(c\*)* —
+the directional coancestry cost the optimum is forced to incur. This is exactly where (A2) bites:
+when b avoids the dominant directions, c\* lives in the cheap part of the spectrum and R(c\*) is
+small (measured: R ≈ 0.02–0.4 on the structured cases versus λ₁ ≈ 45–143, giving PR ≈ 2–12), whereas
+G = εI forces R = ε = λ₁ and PR = n. The residual open piece is now sharp and scalar — bound R(c\*)
+a priori under (A1)+(A2). (The raw cardinality |S| runs ≈ 1.5–2.5× PR here; PR is the quantity with
+the clean law.) Verified in `bound_kernel.py`.
+
 ## Numerical evidence (reproducible)
 
 - `bound_validation.py` — solver vs SciPy; the ε = 0 bound; n-independence; the effective-rank

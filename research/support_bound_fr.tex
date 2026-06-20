@@ -240,6 +240,22 @@ sous-espace dominant, en résistant à la courbure de la queue --- est le probl�
 rencontre de l'optimisation (la face du cône perturbé) et de la génétique quantitative (lignées
 effectives).
 
+\textbf{Une prise exacte sur le support effectif.} Écrivons le nombre \emph{effectif} de contributeurs
+comme le ratio de participation $\mathrm{PR}(\bc^\star) = 1/\lVert\bc^\star\rVert^2$ (égal à $|S|$ pour
+des contributions uniformes, moindre si inégales). Au cap actif avec $\bone\tp\bc^\star = 1$, une
+identité tient : $\mathrm{PR}(\bc^\star) = R(\bc^\star)/k$, où
+$R(\bc^\star) = \bc^{\star\top}\bG\bc^\star / \bc^{\star\top}\bc^\star$ est le quotient de Rayleigh
+propre de l'optimum (car $R\lVert\bc^\star\rVert^2 = \bc^{\star\top}\bG\bc^\star = k$). Donc
+$\mathrm{PR}(\bc^\star) \le \lambda_1/k$ sans condition, et la borne conditionnelle \emph{se réduit à
+borner} $R(\bc^\star)$ --- le coût directionnel de coancestrie que l'optimum est forcé d'encaisser.
+C'est là qu'agit (A2) : quand $\bb$ évite les directions dominantes, $\bc^\star$ vit dans la partie bon
+marché du spectre et $R(\bc^\star)$ est petit (mesuré : $R \approx 0{,}02$--$0{,}4$ sur les cas
+structurés contre $\lambda_1 \approx 45$--$143$, donnant $\mathrm{PR} \approx 2$--$12$), tandis que
+$\bG = \varepsilon\mathbf{I}$ force $R = \varepsilon = \lambda_1$ et $\mathrm{PR} = n$. La pièce ouverte
+résiduelle est désormais nette et scalaire --- borner $R(\bc^\star)$ a priori sous (A1)+(A2). (La
+cardinalité brute $|S|$ vaut $\approx 1{,}5$--$2{,}5\times \mathrm{PR}$ ici ; $\mathrm{PR}$ est la
+quantité à loi propre.) Vérifié dans \texttt{bound\_kernel.py}.
+
 \section*{Évidence numérique (reproductible)}
 
 \texttt{bound\_validation.py} (la borne $\varepsilon=0$, la n-indépendance, les balayages ridge et

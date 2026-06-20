@@ -226,6 +226,22 @@ Woolliams \& Bijma 2000). Proving it --- coupling the spectral gap with $\bb$'s 
 top eigenspace, robust to the tail's curvature --- is the open problem, the meeting point of
 optimisation (the perturbed-cone face) and quantitative genetics (effective lineages).
 
+\textbf{An exact handle on the effective support.} Write the \emph{effective} number of contributors
+as the participation ratio $\mathrm{PR}(\bc^\star) = 1/\lVert\bc^\star\rVert^2$ (it equals $|S|$ for
+uniform contributions, less when uneven). At the active cap with $\bone\tp\bc^\star = 1$ an identity
+holds: $\mathrm{PR}(\bc^\star) = R(\bc^\star)/k$, where
+$R(\bc^\star) = \bc^{\star\top}\bG\bc^\star / \bc^{\star\top}\bc^\star$ is the optimum's own Rayleigh
+quotient (since $R\lVert\bc^\star\rVert^2 = \bc^{\star\top}\bG\bc^\star = k$). Hence
+$\mathrm{PR}(\bc^\star) \le \lambda_1/k$ unconditionally, and the conditional bound \emph{reduces to
+bounding} $R(\bc^\star)$ --- the directional coancestry cost the optimum is forced to incur. This is
+where (A2) bites: when $\bb$ avoids the dominant directions, $\bc^\star$ lives in the cheap part of the
+spectrum and $R(\bc^\star)$ is small (measured: $R \approx 0.02$--$0.4$ on the structured cases versus
+$\lambda_1 \approx 45$--$143$, giving $\mathrm{PR} \approx 2$--$12$), whereas $\bG = \varepsilon\mathbf{I}$
+forces $R = \varepsilon = \lambda_1$ and $\mathrm{PR} = n$. The residual open piece is now sharp and
+scalar --- bound $R(\bc^\star)$ a priori under (A1)+(A2). (The raw cardinality $|S|$ runs
+$\approx 1.5$--$2.5\times \mathrm{PR}$ here; $\mathrm{PR}$ is the quantity with the clean law.) Verified
+in \texttt{bound\_kernel.py}.
+
 \section*{Numerical evidence (reproducible)}
 
 \texttt{bound\_validation.py} (the $\varepsilon=0$ bound, $n$-independence, ridge and
