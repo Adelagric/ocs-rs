@@ -191,18 +191,40 @@ Theorem~\ref{thm:noridge} explains \emph{why} no scalar law exists: there is no 
 to predict, so the practical value is a function of the full $(\text{spectrum}, \bb, k)$
 geometry.
 
-\section{Open problem}
+\section{A conditional bound: the obstruction and the conjecture}
 
-The universal question is closed, negatively, by Theorem~\ref{thm:noridge}; the useful one is
-\emph{conditional}: under structural assumptions that real genomic relationship matrices satisfy
---- a spectrum that decays with no large degenerate floor, and a breeding-value vector not
-concentrated on the top eigendirections --- prove $|S| \le$ (something small, $n$-independent).
-A natural route couples the spectral gap with $\bb$'s projection onto the top eigenspace; the
-growth half ($|S|$ increasing as $k \to 0$) is governed in turn by the classical
+The universal question is closed negatively (Theorem~\ref{thm:noridge}); the useful one is
+\emph{conditional}. Two clean bounds bracket the rest: at a \emph{loose cap} ($\bc\tp\bG\bc^\star < k$)
+the active set is the polytope $\{\bA\bc=\bd,\ \bc\ge0\}$ alone and $\bc^\star$ is an LP vertex, so
+$|S| \le q$; at \emph{exact rank} $d$, Theorem~\ref{thm:eps0} gives $|S| \le q + d + 1$.
+
+A bound in terms of \emph{effective} rank --- the realistic ask, since real spectra decay --- does
+not follow from the same argument, and the obstruction is precise. Theorem~\ref{thm:eps0} linearises
+the optimal slice by pinning $\bZ\tp\bc$, the \emph{entire} range of $\bG_0$; for a full-rank $\bG$
+one would have to pin all $n$ projections $u_i\tp\bc$, giving only the trivial $|S| \le q + n + 1$.
+One cannot pin just the top-$d$ projections and drop the tail, because the tail contributes
+$\bc\tp E\bc = \sum_{i>d} \lambda_i (u_i\tp\bc)^2$ --- a \emph{genuine quadratic}, not a low-rank term
+--- so fixing it is not a linear constraint and the slice is not a polytope. The tail's curvature is
+exactly what lets the support spread; effective rank cannot enter a vertex count. A conditional bound
+therefore needs a different (spectral-perturbation) argument.
+
+It also needs two assumptions, \emph{both necessary}:
+\begin{itemize}
+\item \textbf{(A1) No large degenerate cheap plateau.} A block of many near-equal small eigenvalues is
+  a cheap subspace the optimum spreads into; $\bG = \varepsilon\mathbf{I}$ is the extreme case, giving
+  $|S| = n$ (Theorem~\ref{thm:noridge}). A smoothly decaying spectrum has no such plateau.
+\item \textbf{(A2) $\bb$ avoids the dominant directions.} Even with a gap, $\bb$ on the top (expensive)
+  eigenvector forces dilution and a large support (mean $|S| \approx 146$ of $800$ in the alignment
+  sweep).
+\end{itemize}
+Both counterexamples are established, so neither assumption can be dropped. Under (A1)+(A2) --- the
+regime of real genomic matrices, where $|S| \approx 15$--$30$ --- we conjecture $|S|$ is small and
+$n$-independent, of the order of the dominant eigendirections $\bb$ actually excites; the growth half
+($|S|$ rising as $k \to 0$) follows the
 contributions\,$\leftrightarrow\,\Delta F\,\leftrightarrow\,N_e$ link (Wray \& Thompson 1990;
-Woolliams \& Bijma 2000). This is the meeting point of optimisation (the face dimension of the
-perturbed second-order cone) and quantitative genetics (the effective number of contributing
-lineages).
+Woolliams \& Bijma 2000). Proving it --- coupling the spectral gap with $\bb$'s projection onto the
+top eigenspace, robust to the tail's curvature --- is the open problem, the meeting point of
+optimisation (the perturbed-cone face) and quantitative genetics (effective lineages).
 
 \section*{Numerical evidence (reproducible)}
 

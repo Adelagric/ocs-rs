@@ -119,17 +119,37 @@ sur des spectres synthétiques, des alignements de **b** et des caps, et sur les
 Le Théorème 2 explique *pourquoi* aucune loi scalaire n'existe : il n'y a pas de borne universelle
 à prédire, donc la valeur pratique est fonction de la géométrie complète (spectre, **b**, k).
 
-## 6. Problème ouvert
+## 6. Une borne conditionnelle : l'obstruction et la conjecture
 
-La question universelle est close, négativement, par le Théorème 2 ; la question utile est
-*conditionnelle* : sous des hypothèses structurelles que les vraies matrices de parenté génomique
-satisfont — un spectre décroissant sans grand plancher dégénéré, et un vecteur **b** non concentré
-sur les directions propres de tête — prouver |S| ≤ (quelque chose de petit, indépendant de n). Une
-voie naturelle couple le gap spectral à la projection de **b** sur le sous-espace dominant ; la
-moitié croissante (|S| augmentant quand k → 0) est gouvernée par la filiation classique
-contributions ↔ ΔF ↔ Nₑ (Wray & Thompson 1990 ; Woolliams & Bijma 2000). C'est le point de rencontre
-de l'optimisation (la dimension de face du cône perturbé) et de la génétique quantitative (le nombre
-effectif de lignées contributrices).
+La question universelle est close négativement (Théorème 2) ; la question utile est
+**conditionnelle**. Deux bornes propres encadrent le reste : à **cap lâche** (parenté non saturée,
+cᵀGc\* < k) l'ensemble actif est le seul polytope {Ac = d, c ≥ 0} et c\* est un sommet LP, donc
+|S| ≤ q ; à **rang exact** d, le Théorème 1 donne |S| ≤ q + d + 1.
+
+Une borne en *rang effectif* — l'objectif réaliste, puisque les vrais spectres décroissent — ne
+découle **pas** du même argument, et l'obstruction est précise. Le Théorème 1 linéarise la tranche
+optimale en épinglant Zᵀc, soit *toute* l'image de G₀ ; pour un G de plein rang il faudrait épingler
+les n projections uᵢᵀc, ce qui ne donne que le trivial |S| ≤ q + n + 1. On ne peut pas n'épingler que
+les d directions de tête et négliger la queue, car celle-ci contribue cᵀEc = Σ_{i>d} λᵢ(uᵢᵀc)² — une
+*vraie quadratique*, pas un terme de bas rang — donc la fixer n'est pas une contrainte linéaire et la
+tranche n'est plus un polytope. La courbure de la queue est exactement ce qui laisse le support
+s'étaler ; le rang effectif ne peut pas entrer dans un comptage de sommets. Une borne conditionnelle
+exige donc un autre argument (perturbation spectrale).
+
+Elle exige aussi deux hypothèses, **toutes deux nécessaires** :
+- **(A1) Pas de grand plateau dégénéré bon marché.** Un bloc de nombreuses petites valeurs propres
+  quasi-égales est un sous-espace bon marché où l'optimum s'étale ; G = εI est le cas extrême et donne
+  |S| = n (Théorème 2). Un spectre régulièrement décroissant n'a pas un tel plateau.
+- **(A2) b évite les directions dominantes.** Même avec un gap, b sur le vecteur propre de tête (cher)
+  force la dilution et un grand support (moyenne |S| ≈ 146 sur 800 dans le balayage d'alignement).
+
+Les deux contre-exemples sont établis : aucune hypothèse n'est superflue. Sous (A1)+(A2) — le régime
+des vraies matrices génomiques, où |S| ≈ 15–30 — on conjecture |S| petit et indépendant de n, de
+l'ordre des directions propres dominantes que b excite réellement. La moitié croissante (|S| augmentant
+quand k → 0) suit la filiation contributions ↔ ΔF ↔ Nₑ (Wray & Thompson 1990 ; Woolliams & Bijma 2000).
+Prouver la borne — coupler le gap spectral à la projection de b sur le sous-espace dominant, en
+résistant à la courbure de la queue — est le problème ouvert, point de rencontre de l'optimisation
+(la face du cône perturbé) et de la génétique quantitative (lignées effectives).
 
 ## Évidence numérique (reproductible)
 

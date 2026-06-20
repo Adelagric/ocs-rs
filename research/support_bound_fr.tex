@@ -201,18 +201,44 @@ Le Théorème~\ref{thm:noridge} explique \emph{pourquoi} aucune loi scalaire n'e
 de borne universelle à prédire, donc la valeur pratique est une fonction de la géométrie complète
 $(\text{spectre}, \bb, k)$.
 
-\section{Problème ouvert}
+\section{Une borne conditionnelle : l'obstruction et la conjecture}
 
-La question universelle est close, négativement, par le Théorème~\ref{thm:noridge} ; la question
-utile est \emph{conditionnelle} : sous des hypothèses structurelles que les vraies matrices de
-parenté génomique satisfont --- un spectre décroissant sans grand plancher dégénéré, et un vecteur
-de valeurs génétiques non concentré sur les directions propres de tête --- prouver $|S| \le$
-(quelque chose de petit, indépendant de $n$). Une voie naturelle couple le gap spectral à la
-projection de $\bb$ sur le sous-espace dominant ; la moitié croissante ($|S|$ augmentant quand
-$k \to 0$) est gouvernée à son tour par la filiation classique
+La question universelle est close négativement (Théorème~\ref{thm:noridge}) ; la question utile est
+\emph{conditionnelle}. Deux bornes propres encadrent le reste : à \emph{cap lâche}
+($\bc\tp\bG\bc^\star < k$) l'ensemble actif est le seul polytope $\{\bA\bc=\bd,\ \bc\ge0\}$ et
+$\bc^\star$ est un sommet LP, donc $|S| \le q$ ; à \emph{rang exact} $d$, le Théorème~\ref{thm:eps0}
+donne $|S| \le q + d + 1$.
+
+Une borne en \emph{rang effectif} --- l'objectif réaliste, puisque les vrais spectres décroissent ---
+ne découle pas du même argument, et l'obstruction est précise. Le Théorème~\ref{thm:eps0} linéarise la
+tranche optimale en épinglant $\bZ\tp\bc$, soit \emph{toute} l'image de $\bG_0$ ; pour un $\bG$ de
+plein rang il faudrait épingler les $n$ projections $u_i\tp\bc$, ce qui ne donne que le trivial
+$|S| \le q + n + 1$. On ne peut pas n'épingler que les $d$ directions de tête et négliger la queue, car
+celle-ci contribue $\bc\tp E\bc = \sum_{i>d} \lambda_i (u_i\tp\bc)^2$ --- une \emph{vraie quadratique},
+pas un terme de bas rang --- donc la fixer n'est pas une contrainte linéaire et la tranche n'est plus
+un polytope. La courbure de la queue est exactement ce qui laisse le support s'étaler ; le rang
+effectif ne peut pas entrer dans un comptage de sommets. Une borne conditionnelle exige donc un autre
+argument (perturbation spectrale).
+
+Elle exige aussi deux hypothèses, \emph{toutes deux nécessaires} :
+\begin{itemize}
+\item \textbf{(A1) Pas de grand plateau dégénéré bon marché.} Un bloc de nombreuses petites valeurs
+  propres quasi-égales est un sous-espace bon marché où l'optimum s'étale ; $\bG = \varepsilon\mathbf{I}$
+  est le cas extrême et donne $|S| = n$ (Théorème~\ref{thm:noridge}). Un spectre régulièrement
+  décroissant n'a pas un tel plateau.
+\item \textbf{(A2) $\bb$ évite les directions dominantes.} Même avec un gap, $\bb$ sur le vecteur
+  propre de tête (cher) force la dilution et un grand support (moyenne $|S| \approx 146$ sur $800$ dans
+  le balayage d'alignement).
+\end{itemize}
+Les deux contre-exemples sont établis : aucune hypothèse n'est superflue. Sous (A1)+(A2) --- le régime
+des vraies matrices génomiques, où $|S| \approx 15$--$30$ --- on conjecture $|S|$ petit et indépendant
+de $n$, de l'ordre des directions propres dominantes que $\bb$ excite réellement ; la moitié croissante
+($|S|$ augmentant quand $k \to 0$) suit la filiation
 contributions\,$\leftrightarrow\,\Delta F\,\leftrightarrow\,N_e$ (Wray \& Thompson 1990 ;
-Woolliams \& Bijma 2000). C'est le point de rencontre de l'optimisation (la dimension de face du
-cône perturbé) et de la génétique quantitative (le nombre effectif de lignées contributrices).
+Woolliams \& Bijma 2000). La prouver --- coupler le gap spectral à la projection de $\bb$ sur le
+sous-espace dominant, en résistant à la courbure de la queue --- est le problème ouvert, point de
+rencontre de l'optimisation (la face du cône perturbé) et de la génétique quantitative (lignées
+effectives).
 
 \section*{Évidence numérique (reproductible)}
 

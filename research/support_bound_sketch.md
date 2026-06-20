@@ -119,17 +119,37 @@ across synthetic spectra, b-alignments and caps and on the real panels. The find
 Theorem 2 explains *why* no scalar law exists: there is no universal bound to predict, so the
 practical value is genuinely a function of the full (spectrum, **b**, k) geometry.
 
-## 6. Open problem
+## 6. A conditional bound: the obstruction and the conjecture
 
-The universal question is closed (negatively, Theorem 2); the useful one is **conditional**:
-under structural assumptions that real genomic relationship matrices satisfy — a spectrum that
-decays with no large degenerate floor, and a breeding-value vector not concentrated on the top
-eigendirections — prove |S| ≤ (something small, n-independent). A natural route couples the
-spectral gap with **b**'s projection onto the top eigenspace; the growth half (|S| increasing
-as k → 0) is governed in turn by the classical contributions ↔ ΔF ↔ Nₑ link (Wray & Thompson
-1990; Woolliams & Bijma 2000). This is the meeting point of optimisation (the face dimension
-of the perturbed second-order cone) and quantitative genetics (the effective number of
-contributing lineages).
+The universal question is closed negatively (Theorem 2); the useful one is **conditional**. Two
+clean bounds are provable and bracket the rest: at a **loose cap** (kinship slack, cᵀGc\* < k) the
+active set is the polytope {Ac = d, c ≥ 0} alone and c\* is an LP vertex, so |S| ≤ q; at **exact
+rank** d, Theorem 1 gives |S| ≤ q + d + 1.
+
+A bound in terms of *effective* rank — the realistic ask, since real spectra decay — does **not**
+follow from the same argument, and the obstruction is precise. Theorem 1 linearises the optimal
+slice by pinning Zᵀc, i.e. the **entire** range of G₀; for a full-rank G one would have to pin all
+n projections uᵢᵀc, giving only the trivial |S| ≤ q + n + 1. One cannot pin just the top-d
+projections and drop the tail, because the tail contributes cᵀEc = Σ_{i>d} λᵢ(uᵢᵀc)² — a *genuine
+quadratic*, not a low-rank term — so fixing it is not a linear constraint and the slice is not a
+polytope. The tail's curvature is exactly what lets the support spread; effective rank cannot enter
+a vertex-counting argument. A conditional bound therefore needs a different (spectral-perturbation)
+argument.
+
+It also needs two assumptions, **both necessary**:
+- **(A1) No large degenerate cheap plateau.** A block of many near-equal small eigenvalues is a
+  cheap subspace the optimum spreads into; G = εI is the extreme case, giving |S| = n (Theorem 2).
+  A smoothly decaying spectrum has no such plateau.
+- **(A2) b avoids the dominant directions.** Even with a gap, b on the top (expensive) eigenvector
+  forces dilution and a large support (mean |S| ≈ 146 of 800 in the alignment sweep).
+
+Both counterexamples are established, so neither assumption can be dropped. Under (A1)+(A2) — the
+regime of real genomic matrices, where |S| ≈ 15–30 — we conjecture |S| is small and n-independent,
+of the order of the dominant eigendirections b actually excites. The growth half (|S| rising as
+k → 0) is governed by the classical contributions ↔ ΔF ↔ Nₑ link (Wray & Thompson 1990; Woolliams &
+Bijma 2000). Proving the bound — coupling the spectral gap with b's projection onto the top
+eigenspace, robust to the tail's curvature — is the open problem, the meeting point of optimisation
+(the perturbed-cone face) and quantitative genetics (effective lineages).
 
 ## Numerical evidence (reproducible)
 
