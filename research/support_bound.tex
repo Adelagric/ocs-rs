@@ -1,0 +1,227 @@
+\documentclass[11pt]{article}
+
+\usepackage{geometry}
+\geometry{a4paper, margin=2.4cm}
+
+\usepackage{fontspec}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{unicode-math}
+% Fonts: Latin Modern (fontspec / unicode-math defaults) — bundled with tectonic.
+
+\usepackage{microtype}
+\usepackage[dvipsnames]{xcolor}
+\usepackage[colorlinks=true, linkcolor=RoyalBlue, urlcolor=RoyalBlue]{hyperref}
+\usepackage{enumitem}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.45em}
+\setlength{\emergencystretch}{3em}
+\setlist{leftmargin=1.4em}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+
+\newcommand{\tp}{^{\top}}
+\newcommand{\bc}{\mathbf{c}}
+\newcommand{\bb}{\mathbf{b}}
+\newcommand{\bG}{\mathbf{G}}
+\newcommand{\bZ}{\mathbf{Z}}
+\newcommand{\bA}{\mathbf{A}}
+\newcommand{\bd}{\mathbf{d}}
+\newcommand{\bu}{\mathbf{u}}
+\newcommand{\by}{\mathbf{y}}
+\newcommand{\bs}{\mathbf{s}}
+\newcommand{\bw}{\mathbf{w}}
+\newcommand{\bze}{\mathbf{z}}
+\newcommand{\bone}{\mathbf{1}}
+
+\title{\bfseries On the support size of the genomic OCS optimum}
+\author{\textbf{Adel Kaleche}\\[2pt] \small\itshape Affiliation to be completed.}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+A companion note to the support-first solver. For genomic optimum contribution selection
+(OCS) we bracket the size of the optimal support: a clean $n$-independent bound holds in the
+no-ridge limit (Theorem~\ref{thm:eps0}), no universal bound survives the ridge
+(Theorem~\ref{thm:noridge}), and the practical regime between them is governed by the joint
+geometry of spectrum, breeding values and cap, admitting no single-scalar law. A KKT identity
+(Proposition~\ref{prop:kkt}) connects the two theorems. All empirical claims are reproducible.
+\end{abstract}
+
+\section{The question}
+
+Genomic OCS solves, for $n$ candidates with breeding values $\bb \in \mathbb{R}^n$ and
+relationship matrix $\bG = \bZ\bZ\tp/s + \varepsilon\mathbf{I}$ ($\bZ$ the $n\times m$ centred
+genotype matrix, $s$ a scale, $\varepsilon$ a small ridge for positive-definiteness),
+\begin{equation}\label{eq:ocs}
+  \max\ \bb\tp\bc \quad\text{s.t.}\quad \bA\bc = \bd,\ \ \mathbf{0} \le \bc \le \bu,\ \ \bc\tp\bG\bc \le k,
+\end{equation}
+where $\bA$ is the $q\times n$ budget matrix ($q=1$ for the simplex $\bone\tp\bc=1$; $q=2$ for
+the sexed form $\sum_{\text{males}} = \sum_{\text{females}} = \tfrac12$). Empirically the
+optimum $\bc^\star$ activates very few candidates: its support $S = \{i : c^\star_i > 0\}$ is
+$\approx 15$--$30$ on real panels and stays bounded as $n$ grows at a fixed cap. What bounds
+$|S|$?
+
+The answer is a \emph{bracket}. In the no-ridge limit there is a clean $n$-independent bound
+(\S\ref{sec:eps0}); once the ridge is present there is provably no universal bound, the
+support reaching the whole population (\S\ref{sec:noridge}); and the practical regime between
+them is set by the joint geometry of $(\text{spectrum}, \bb, k)$, which admits no
+single-scalar law and which we map empirically (\S\ref{sec:empirical}). A KKT identity
+(\S\ref{sec:kkt}) bridges the two theorems.
+
+\section{The \texorpdfstring{$\varepsilon = 0$}{eps=0} bound}\label{sec:eps0}
+
+\begin{theorem}\label{thm:eps0}
+For $\varepsilon = 0$ (so $\bG = \bG_0 = \bZ\bZ\tp/s$ of rank $r \le m$),
+\eqref{eq:ocs} has an optimal $\bc^\star$ with $|S| \le q + r + 1$, independent of $n$.
+\end{theorem}
+
+\begin{proof}
+By strong duality (Slater holds at any interior-feasible instance) there is a multiplier
+$\lambda^\star \ge 0$ such that $\bc^\star$ maximises the Lagrangian
+$L(\bc) = \bb\tp\bc - \lambda^\star\,\bc\tp\bG_0\bc$ over the polytope
+$\{\bA\bc = \bd,\ \bc \ge 0\}$. Since $\bc\tp\bG_0\bc = \lVert\bZ\tp\bc\rVert^2/s$, the value
+$L(\bc)$ depends on $\bc$ only through the pair $(\bZ\tp\bc,\ \bb\tp\bc) \in \mathbb{R}^{r+1}$.
+Hence the slice
+\[
+  P = \{\, \bc \ge 0 : \bA\bc = \bd,\ \bZ\tp\bc = \bZ\tp\bc^\star,\ \bb\tp\bc = \bb\tp\bc^\star \,\}
+\]
+is \emph{entirely optimal}: every $\bc \in P$ is feasible ($\bc\tp\bG_0\bc = \lVert\bZ\tp\bc^\star\rVert^2/s \le k$)
+and attains the optimal value $\bb\tp\bc^\star$. $P$ is nonempty (it contains $\bc^\star$) and
+bounded (the budget together with $\bc \ge 0$), and it is cut by $q + r + 1$ equality rows, so
+it has a vertex; a vertex of $\{\bc \ge 0 : \mathbf{M}\bc = \mathbf{e}\}$ with $q+r+1$ rows has
+at most $q + r + 1$ nonzeros. That vertex is an optimum with the stated support.
+\end{proof}
+
+This is the Carathéodory / Barvinok--Pataki idea applied correctly: one does \emph{not} count
+on the curved boundary of the ellipsoid (where, $\bG$ being positive definite, every point is
+already an extreme point of the feasible set, so the support is unconstrained) --- instead one
+\emph{fixes the low-rank image $\bZ\tp\bc$ and the objective}, which makes the optimal slice
+affine, and counts LP vertices there. Active-set solvers (support-first; the critical line
+algorithm) return such a vertex, whereas interior-point and ADMM solvers return non-sparse
+interior points and threshold post hoc --- so the bound describes precisely what an active-set
+solver computes.
+
+\section{No universal bound for \texorpdfstring{$\varepsilon > 0$}{eps>0}}\label{sec:noridge}
+
+\begin{theorem}\label{thm:noridge}
+For $\varepsilon > 0$ no bound on $|S|$ of the form $f(q, r)$ independent of $n$ exists: the
+support can equal $n$.
+\end{theorem}
+
+\begin{proof}[Proof (counterexample)]
+Take $\bG = \varepsilon\mathbf{I}$ --- the degenerate case $m = 0$ (no markers, every pair
+equally unrelated; $\operatorname{rank}(\bG_0) = 0$). Then \eqref{eq:ocs}, simplex form, is
+\[
+  \max\ \bb\tp\bc \quad\text{s.t.}\quad \bone\tp\bc = 1,\ \bc \ge 0,\ \varepsilon\lVert\bc\rVert^2 \le k,
+\]
+and $\lVert\bc\rVert^2 = \sum_i c_i^2$ is exactly the rate-of-inbreeding proxy. The minimum of
+$\lVert\bc\rVert^2$ on the simplex is $1/n$, attained only at the uniform plan $\bc = \bone/n$.
+For $k$ slightly above $\varepsilon/n$ the feasible set is the simplex intersected with a ball
+that shrinks onto $\bone/n$, forcing $|S| = n$. Numerically (\texttt{bound\_validation.py},
+block~7, $n = 300$): $|S| = 300, 295, 256, 151, 52, 12$ as $k$ loosens from $1.05\times$ to
+$50\times$ the minimum. So $|S|$ ranges over $[1, n]$ with no $n$-independent ceiling.
+\end{proof}
+
+Genetically, $\bG = \varepsilon\mathbf{I}$ is the \emph{no-structure} limit; with no relatedness
+pattern the diversity cap can be met only by spreading contributions over the whole population.
+The small support seen on real data is therefore a property of the \emph{structure} of $\bG$
+(and of $\bb$), not a worst-case guarantee.
+
+\section{The bridge: a KKT identity}\label{sec:kkt}
+
+\begin{proposition}\label{prop:kkt}
+At an optimum with the kinship constraint active, the contributions on the support are an
+affine function of each candidate's augmented feature $(b_i, \bze_i) \in \mathbb{R}^{m+1}$
+($\bze_i$ the $i$-th row of $\bZ$): $\ c^\star_i = \alpha\,b_i + \bw\tp\bze_i + \beta_{\mathrm{sex}(i)}$
+for $i \in S$.
+\end{proposition}
+
+\begin{proof}
+KKT gives $\mu \in \mathbb{R}^q$, $\lambda \ge 0$, $\bs \ge 0$ with
+$\bb = \bA\tp\mu + 2\lambda\bG\bc^\star - \bs$ and $s_i c^\star_i = 0$. On $S$ ($s_i = 0$):
+$b_i = (\bA\tp\mu)_i + 2\lambda(\bG\bc^\star)_i$. Writing $\by := \bZ\tp\bc^\star$ and using
+$\bG\bc^\star = \bZ\by/s + \varepsilon\bc^\star$ gives, for $i \in S$,
+$\varepsilon c^\star_i = (b_i - (\bA\tp\mu)_i)/(2\lambda) - (\bze_i\tp\by)/s$, i.e.
+$c^\star_i = \alpha\,b_i + \bw\tp\bze_i + \beta_{\mathrm{sex}(i)}$ with $\alpha = 1/(2\lambda\varepsilon)$,
+$\bw = -\by/(s\varepsilon)$, $\beta_{\mathrm{sex}(i)} = -(\bA\tp\mu)_i/(2\lambda\varepsilon)$.
+\end{proof}
+
+The support's contributions thus live on an $(m+2)$-parameter family. As $\varepsilon \to 0$
+the $\varepsilon c^\star_i$ term vanishes and the identity forces $\bb - \bA\tp\mu$ into the
+rank-$r$ row space of $\bZ$, recovering Theorem~\ref{thm:eps0} and exhibiting $m$ (the marker
+count) as the relevant dimension. For $\varepsilon > 0$ the same identity does \emph{not} cap
+$|S|$, consistent with Theorem~\ref{thm:noridge}.
+
+\section{The empirical regime between the theorems}\label{sec:empirical}
+
+Between the two clean statements lies the regime breeders use, mapped across synthetic spectra,
+$\bb$-alignments and caps and on the real panels:
+
+\begin{itemize}
+\item \textbf{$\bb$'s alignment with the spectrum drives $|S|$, inversely.} With $\bG$ and $k$
+  fixed, putting $\bb$ on the dominant (coancestry-expensive) eigendirection forces a large
+  support (mean $|S| \approx 146$ of $n = 800$ for $\bb$ the top eigenvector); spreading $\bb$
+  across many cheap directions collapses it to $\approx 4$. Gain sought in an expensive
+  direction must be diluted over many candidates to respect the cap (\texttt{bound\_balign.py}).
+\item \textbf{No single scalar predicts $|S|$ across regimes.} Neither $\operatorname{rank}(\bG_0)$,
+  the effective rank / participation ratio of the spectrum, the directional cost
+  $\bb\tp\bG\bb/\bb\tp\bb$, nor the support of the unconstrained direction $(\bG^{-1}\bb)_+$
+  tracks $|S|$ across both synthetic and real instances; the best dimensionless combination,
+  $|S| \sim (\bb\tp\bG\bb/\bb\tp\bb \cdot 1/k)^{0.8}$, reaches only $R^2 \approx 0.58$ and
+  mispredicts the real panels' relative support (\texttt{bound\_predictor.py},
+  \texttt{bound\_lawfit.py}).
+\item \textbf{The curve $|S|(k)$ is a per-instance power law of non-universal exponent.}
+  $|S| \sim k^{-\alpha}$ fits each instance well ($R^2 \approx 0.9$--$0.98$ where the support is
+  well resolved), with $\alpha \approx 1$ on both real panels but ranging $0.5$--$1.7$ across
+  synthetic spectra and alignments (\texttt{bound\_curve.py}).
+\item \textbf{Real panels.} Wheat ($n = 599$) and mouse ($n = 1814$): $|S| = 25/26$ and $17/26$
+  (simplex / sexed-optiSel) at the working cap, both of order tens --- small and stable in $n$,
+  as the decaying-spectrum regime predicts qualitatively, though no formula pins the value
+  (\texttt{bound\_real.py}).
+\end{itemize}
+
+Theorem~\ref{thm:noridge} explains \emph{why} no scalar law exists: there is no universal bound
+to predict, so the practical value is a function of the full $(\text{spectrum}, \bb, k)$
+geometry.
+
+\section{Open problem}
+
+The universal question is closed, negatively, by Theorem~\ref{thm:noridge}; the useful one is
+\emph{conditional}: under structural assumptions that real genomic relationship matrices satisfy
+--- a spectrum that decays with no large degenerate floor, and a breeding-value vector not
+concentrated on the top eigendirections --- prove $|S| \le$ (something small, $n$-independent).
+A natural route couples the spectral gap with $\bb$'s projection onto the top eigenspace; the
+growth half ($|S|$ increasing as $k \to 0$) is governed in turn by the classical
+contributions\,$\leftrightarrow\,\Delta F\,\leftrightarrow\,N_e$ link (Wray \& Thompson 1990;
+Woolliams \& Bijma 2000). This is the meeting point of optimisation (the face dimension of the
+perturbed second-order cone) and quantitative genetics (the effective number of contributing
+lineages).
+
+\section*{Numerical evidence (reproducible)}
+
+\texttt{bound\_validation.py} (the $\varepsilon=0$ bound, $n$-independence, ridge and
+spectral-decay sweeps, and the Theorem~\ref{thm:noridge} counterexample);
+\texttt{bound\_real.py} (wheat and mouse, after \texttt{research/repro/*\_export.R});
+\texttt{bound\_balign.py} (the $\bb$-alignment sweep); \texttt{bound\_predictor.py} and
+\texttt{bound\_lawfit.py} (the predictor / law search); \texttt{bound\_curve.py} (the
+per-instance $|S|(k)$ fit). Full log: \texttt{research/support\_bound\_sketch.md}.
+
+\section*{References}
+\sloppy
+\begin{enumerate}[leftmargin=2em]
+\item \textbf{Pataki, G. (1998).} On the rank of extreme matrices in semidefinite programs and the multiplicity of optimal eigenvalues. \emph{Math.\ Oper.\ Res.} 23(2):339--358. DOI 10.1287/moor.23.2.339.
+\item \textbf{Markowitz, H. (1956).} The optimization of a quadratic function subject to linear constraints. \emph{Naval Res.\ Logist.\ Q.} 3(1--2):111--133. DOI 10.1002/nav.3800030110.
+\item \textbf{Wray, N.R. \& Thompson, R. (1990).} Prediction of rates of inbreeding in selected populations. \emph{Genet.\ Res.} 55(1):41--54. DOI 10.1017/S0016672300025180.
+\item \textbf{Woolliams, J.A. \& Bijma, P. (2000).} Predicting rates of inbreeding in populations undergoing selection. \emph{Genetics} 154(4):1851--1864. DOI 10.1093/genetics/154.4.1851.
+\item \textbf{Yamashita, M., Mullin, T.J. \& Safarina, S. (2018).} An efficient second-order cone programming approach for optimal selection in tree breeding. \emph{Optim.\ Lett.} 12(7):1683--1697. DOI 10.1007/s11590-018-1229-y.
+\item \textbf{Waldmann, P. (2025).} Genomic optimum contribution selection and mate allocation using JuMP. \emph{Bioinform.\ Adv.} 5(1):vbaf259. DOI 10.1093/bioadv/vbaf259.
+\end{enumerate}
+
+\end{document}
