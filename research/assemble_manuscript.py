@@ -27,6 +27,29 @@ AVAILABILITY = (
     "dataset (DOI 10.1534/g3.111.001453)."
 )
 
+APPENDIX = (
+    "The support-first cost follows the support size |S|; we bracket it (full proofs, the "
+    "bridging KKT identity, and the empirical map are in the companion note "
+    "`research/support_bound_sketch.md`, with reproducible scripts `research/bound_*.py`).\n\n"
+    "**Theorem 1 (no-ridge bound).** *For ε = 0 (G = ZZᵀ/s of rank r ≤ m), OCS attains its "
+    "optimum at a contribution vector with support |S| ≤ q + r + 1, independent of n* "
+    "(q ∈ {1, 2} budget rows). At ε = 0 the Lagrangian depends on c only through "
+    "(Zᵀc, bᵀc) ∈ ℝ^{r+1}; fixing those linearises the optimal face to an LP polytope whose "
+    "vertices have ≤ q + r + 1 nonzeros — the vertex an active-set solver returns. "
+    "(Carathéodory / Barvinok–Pataki on the linearised face, not the curved ellipsoid "
+    "boundary, where every point is extreme.)\n\n"
+    "**Theorem 2 (no universal bound under the ridge).** *For the ridged G = ZZᵀ/s + εI "
+    "(ε > 0), no bound f(q, r) independent of n holds — the support can equal n.* Witness: "
+    "G = εI (no markers, all unrelated) turns the kinship cap into ε‖c‖² ≤ k, where ‖c‖² is "
+    "the rate-of-inbreeding proxy; just above the uniform minimum the feasible ball forces "
+    "full support (verified at n = 300). This is the no-structure limit.\n\n"
+    "Between the two, the realised support is set by the joint geometry of (spectrum, b, cap "
+    "k): small and stable in n precisely when the relationship spectrum decays and b avoids "
+    "the dominant eigendirections — the regime of the real panels (|S| ≈ 15–30 here) — but "
+    "with no single-scalar predictive law. Bounding it under that realistic structure is the "
+    "open problem."
+)
+
 
 def strip_note_and_h1(text):
     lines = text.splitlines()
@@ -74,6 +97,7 @@ sections = [
     ("## 4. Discussion", demote(strip_note_and_h1((R / "manuscript_discussion.md").read_text()))),
     ("## Data and code availability", AVAILABILITY),
     ("## References", demote(strip_reserve(strip_note_and_h1((R / "manuscript_references.md").read_text())))),
+    ("## Appendix: the support size — a bracket", APPENDIX),
 ]
 
 parts = [TITLE]

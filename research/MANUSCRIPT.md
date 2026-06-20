@@ -566,6 +566,16 @@ The support-first solver and all benchmark and reproduction scripts are availabl
     genomic analysis of livestock populations. *G3: Genes|Genomes|Genetics*
     2(4):429–435. DOI 10.1534/g3.111.001453. — The PIC pig panel.
 
+## Appendix: the support size — a bracket
+
+The support-first cost follows the support size |S|; we bracket it (full proofs, the bridging KKT identity, and the empirical map are in the companion note `research/support_bound_sketch.md`, with reproducible scripts `research/bound_*.py`).
+
+**Theorem 1 (no-ridge bound).** *For ε = 0 (G = ZZᵀ/s of rank r ≤ m), OCS attains its optimum at a contribution vector with support |S| ≤ q + r + 1, independent of n* (q ∈ {1, 2} budget rows). At ε = 0 the Lagrangian depends on c only through (Zᵀc, bᵀc) ∈ ℝ^{r+1}; fixing those linearises the optimal face to an LP polytope whose vertices have ≤ q + r + 1 nonzeros — the vertex an active-set solver returns. (Carathéodory / Barvinok–Pataki on the linearised face, not the curved ellipsoid boundary, where every point is extreme.)
+
+**Theorem 2 (no universal bound under the ridge).** *For the ridged G = ZZᵀ/s + εI (ε > 0), no bound f(q, r) independent of n holds — the support can equal n.* Witness: G = εI (no markers, all unrelated) turns the kinship cap into ε‖c‖² ≤ k, where ‖c‖² is the rate-of-inbreeding proxy; just above the uniform minimum the feasible ball forces full support (verified at n = 300). This is the no-structure limit.
+
+Between the two, the realised support is set by the joint geometry of (spectrum, b, cap k): small and stable in n precisely when the relationship spectrum decays and b avoids the dominant eigendirections — the regime of the real panels (|S| ≈ 15–30 here) — but with no single-scalar predictive law. Bounding it under that realistic structure is the open problem.
+
 ## Figure
 
 **Figure 1.** Matrix-free vs dense-G scaling (`research/fig_scaling.pdf`); described in Results, section *Scaling and the matrix-free advantage*.

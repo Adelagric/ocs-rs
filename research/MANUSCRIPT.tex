@@ -252,4 +252,13 @@ The support-first solver and all benchmark and reproduction scripts are availabl
 \item \textbf{Cleveland, M.A., Hickey, J.M. \& Forni, S. (2012).} A common dataset for genomic analysis of livestock populations. \emph{G3: Genes|Genomes|Genetics} 2(4):429--435. DOI 10.1534/g3.111.001453. --- The PIC pig panel.
 \end{enumerate}
 
+\section*{Appendix: the support size --- a bracket}
+The support-first cost follows the support size $|S|$; we bracket it (full proofs, the bridging KKT identity, and the empirical map are in the companion note \texttt{research/support\_bound\_sketch.md}, with reproducible scripts \texttt{research/bound\_*.py}).
+
+\textbf{Theorem 1 (no-ridge bound).} \emph{For $\varepsilon = 0$ ($\bG = \bZ\bZ\tp/s$ of rank $r \le m$), OCS attains its optimum at a contribution vector with support $|S| \le q + r + 1$, independent of $n$} ($q \in \{1,2\}$ budget rows). At $\varepsilon = 0$ the Lagrangian depends on $\bc$ only through $(\bZ\tp\bc,\ \bb\tp\bc) \in \mathbb{R}^{r+1}$; fixing those linearises the optimal face to an LP polytope whose vertices have $\le q + r + 1$ nonzeros --- the vertex an active-set solver returns. (Carathéodory / Barvinok--Pataki on the linearised face, not the curved ellipsoid boundary, where $\bG$ being positive definite makes every point extreme.)
+
+\textbf{Theorem 2 (no universal bound under the ridge).} \emph{For the ridged $\bG = \bZ\bZ\tp/s + \varepsilon\mathbf{I}$ ($\varepsilon > 0$), no bound $f(q, r)$ independent of $n$ holds --- the support can equal $n$.} Witness: $\bG = \varepsilon\mathbf{I}$ (no markers, all unrelated) turns the kinship cap into $\varepsilon\lVert\bc\rVert^2 \le k$, where $\lVert\bc\rVert^2$ is the rate-of-inbreeding proxy; just above the uniform minimum the feasible ball forces full support (verified at $n = 300$). This is the no-structure limit.
+
+Between the two, the realised support is set by the joint geometry of (spectrum, $\bb$, cap $k$): small and stable in $n$ precisely when the relationship spectrum decays and $\bb$ avoids the dominant eigendirections --- the regime of the real panels ($|S| \approx 15$--$30$ here) --- but with no single-scalar predictive law. Bounding it under that realistic structure is the open problem. Full development: \texttt{research/support\_bound\_sketch.md} (and \texttt{support\_bound.tex}).
+
 \end{document}

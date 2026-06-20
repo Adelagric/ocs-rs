@@ -228,6 +228,16 @@ Le solveur support-first ainsi que tous les scripts de comparaison et de reprodu
     genomic analysis of livestock populations. *G3: Genes|Genomes|Genetics*
     2(4):429–435. DOI 10.1534/g3.111.001453. — Le panel de porc PIC.
 
+## Annexe : la taille du support — un encadrement
+
+Le coût de support-first suit la taille du support |S| ; on l'encadre (preuves complètes, identité KKT de liaison et carte empirique dans la note compagne [`support_bound_fr.md`](support_bound_fr.md), scripts reproductibles `research/bound_*.py`).
+
+**Théorème 1 (borne sans ridge).** *Pour ε = 0 (G = ZZᵀ/s de rang r ≤ m), l'OCS atteint son optimum en un vecteur de contributions de support |S| ≤ q + r + 1, indépendant de n* (q ∈ {1, 2} lignes de budget). À ε = 0 le lagrangien ne dépend de c qu'à travers (Zᵀc, bᵀc) ∈ ℝ^{r+1} ; fixer ces quantités linéarise la face optimale en un polytope LP dont les sommets ont ≤ q + r + 1 composantes non nulles — le sommet que renvoie un solveur à ensemble actif. (Carathéodory / Barvinok–Pataki sur la face linéarisée, pas sur la frontière courbe de l'ellipsoïde, où tout point est extrême.)
+
+**Théorème 2 (aucune borne universelle avec le ridge).** *Pour G = ZZᵀ/s + εI (ε > 0), aucune borne f(q, r) indépendante de n ne tient — le support peut valoir n.* Témoin : G = εI (aucun marqueur, tous non apparentés) réduit le cap de parenté à ε‖c‖² ≤ k, où ‖c‖² est le proxy du taux de consanguinité ; juste au-dessus du minimum uniforme la boule réalisable force le support plein (vérifié à n = 300). C'est la limite sans structure.
+
+Entre les deux, le support réalisé est fixé par la géométrie conjointe de (spectre, b, cap k) : petit et stable en n précisément quand le spectre décroît et que b évite les directions propres dominantes — le régime des panels réels (|S| ≈ 15–30 ici) — mais sans loi scalaire prédictive unique. Le borner sous cette structure réaliste est le problème ouvert.
+
 ## Figure
 
 **Figure 1.** Passage à l'échelle sans matrice contre G dense (`research/fig_scaling.pdf`) ; décrit dans les Résultats, section *Passage à l'échelle et avantage sans matrice*.

@@ -255,4 +255,13 @@ Le solveur support-first ainsi que tous les scripts de comparaison et de reprodu
 \item \textbf{Cleveland, M.A., Hickey, J.M. \& Forni, S. (2012).} A common dataset for genomic analysis of livestock populations. \emph{G3: Genes|Genomes|Genetics} 2(4):429--435. DOI 10.1534/g3.111.001453. --- Le panel de porc PIC.
 \end{enumerate}
 
+\section*{Annexe : la taille du support --- un encadrement}
+Le coût de support-first suit la taille du support $|S|$ ; on l'encadre (preuves complètes, identité KKT de liaison et carte empirique dans la note compagne \texttt{research/support\_bound\_sketch.md}, scripts reproductibles \texttt{research/bound\_*.py}).
+
+\textbf{Théorème 1 (borne sans ridge).} \emph{Pour $\varepsilon = 0$ ($\bG = \bZ\bZ\tp/s$ de rang $r \le m$), l'OCS atteint son optimum en un vecteur de contributions de support $|S| \le q + r + 1$, indépendant de $n$} ($q \in \{1,2\}$ lignes de budget). À $\varepsilon = 0$ le lagrangien ne dépend de $\bc$ qu'à travers $(\bZ\tp\bc,\ \bb\tp\bc) \in \mathbb{R}^{r+1}$ ; fixer ces quantités linéarise la face optimale en un polytope LP dont les sommets ont $\le q + r + 1$ composantes non nulles --- le sommet que renvoie un solveur à ensemble actif. (Carathéodory / Barvinok--Pataki sur la face linéarisée, pas sur la frontière courbe de l'ellipsoïde, où $\bG$ définie positive rend tout point extrême.)
+
+\textbf{Théorème 2 (aucune borne universelle avec le ridge).} \emph{Pour $\bG = \bZ\bZ\tp/s + \varepsilon\mathbf{I}$ ($\varepsilon > 0$), aucune borne $f(q, r)$ indépendante de $n$ ne tient --- le support peut valoir $n$.} Témoin : $\bG = \varepsilon\mathbf{I}$ (aucun marqueur, tous non apparentés) réduit le cap de parenté à $\varepsilon\lVert\bc\rVert^2 \le k$, où $\lVert\bc\rVert^2$ est le proxy du taux de consanguinité ; juste au-dessus du minimum uniforme la boule réalisable force le support plein (vérifié à $n = 300$). C'est la limite sans structure.
+
+Entre les deux, le support réalisé est fixé par la géométrie conjointe de (spectre, $\bb$, cap $k$) : petit et stable en $n$ précisément quand le spectre décroît et que $\bb$ évite les directions propres dominantes --- le régime des panels réels ($|S| \approx 15$--$30$ ici) --- mais sans loi scalaire prédictive unique. Le borner sous cette structure réaliste est le problème ouvert. Développement complet : \texttt{research/support\_bound\_sketch.md} (et \texttt{support\_bound\_fr.tex}).
+
 \end{document}
