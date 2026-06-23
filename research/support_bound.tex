@@ -242,6 +242,16 @@ scalar --- bound $R(\bc^\star)$ a priori under (A1)+(A2). (The raw cardinality $
 $\approx 1.5$--$2.5\times \mathrm{PR}$ here; $\mathrm{PR}$ is the quantity with the clean law.) Verified
 in \texttt{bound\_kernel.py}.
 
+\textbf{Attacking this residual.} The unconstrained relaxation (drop $\bc \ge 0$) has a closed form,
+$R_{\mathrm{relax}} = (\beta\tp\bG^{-1}\beta)/(\beta\tp\bG^{-2}\beta)$ with $\beta = \bb - \mu\bone$ ---
+a $\lambda$-average weighted by $\beta_i^2/\lambda_i^2$, so small under (A2). But it predicts
+$R(\bc^\star)$ only when $\bc \ge 0$ is near-inactive: on the real panels the unconstrained optimum
+carries large negative entries ($\min \approx -1$ to $-2.6$) and $R_{\mathrm{relax}}$ falls
+$60$--$300\times$ below $R(\bc^\star)$. So \textbf{nonnegativity is the irreducible core} --- fittingly,
+$|S|$ is the cardinality of a nonnegativity-constrained QP optimum, hard in general --- and a proof
+must be genuinely $\bc \ge 0$-aware, not a relaxation shortcut. The clean a priori handle (the
+relaxation formula) and the irreducible obstacle ($\bc \ge 0$) are now both identified.
+
 \section*{Numerical evidence (reproducible)}
 
 \texttt{bound\_validation.py} (the $\varepsilon=0$ bound, $n$-independence, ridge and

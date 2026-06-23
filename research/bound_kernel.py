@@ -48,8 +48,14 @@ def report(name, G, b, k, lam1):
     c, S = support_first(G, b, k)
     nrm2 = float(c @ c); pr = 1.0 / nrm2
     cGc = float(c @ G @ c); R = cGc / nrm2
-    print(f"  {name:>22} |S|={len(S):>4}  PR={pr:>7.1f}  R/k={R/k:>7.1f}  R={R:>8.4f}  "
-          f"λ1/k={lam1/k:>8.1f}  cGc/k={cGc/k:.3f}")
+    # equality relaxation: drop c >= 0 (closed form on the full index set) -> a priori R
+    sol = closed_form(G, b, k, list(range(len(b))))
+    if sol is not None:
+        cr = sol[0]; Rr = float(cr @ G @ cr) / float(cr @ cr)
+        relax = f"R_relax={Rr:>8.4f}  PR_relax={Rr/k:>6.1f}  min(c_relax)={cr.min():>7.3f}"
+    else:
+        relax = "relax: ellipsoid misses the hyperplane"
+    print(f"  {name:>22} |S|={len(S):>4}  PR={pr:>6.1f}  R={R:>7.4f}  λ1/k={lam1/k:>7.1f}  | {relax}")
 
 print("=== PR(c*) = R(c*)/k  (effective contributors);  PR <= λ1/k ===")
 print("  (PR and R/k must match; PR <= λ1/k must hold; compare PR to raw |S|)\n")

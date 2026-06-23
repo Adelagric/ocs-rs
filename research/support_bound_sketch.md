@@ -163,6 +163,15 @@ G = εI forces R = ε = λ₁ and PR = n. The residual open piece is now sharp a
 a priori under (A1)+(A2). (The raw cardinality |S| runs ≈ 1.5–2.5× PR here; PR is the quantity with
 the clean law.) Verified in `bound_kernel.py`.
 
+**Attacking this residual.** The unconstrained relaxation (drop c ≥ 0) has a closed form,
+R_relax = (βᵀG⁻¹β)/(βᵀG⁻²β) with β = b − μ𝟙 — a λ-average weighted by βᵢ²/λᵢ², so small under
+(A2). But it predicts R(c\*) only when c ≥ 0 is near-inactive: on the real panels the
+unconstrained optimum carries large negative entries (min c_relax ≈ −1 to −2.6) and R_relax
+falls 60–300× below R(c\*). So **nonnegativity is the irreducible core** — fittingly, |S| is the
+cardinality of a nonnegativity-constrained QP optimum, hard in general — and a proof must be
+genuinely c ≥ 0-aware, not a relaxation shortcut. The clean a priori handle (the relaxation
+formula) and the irreducible obstacle (c ≥ 0) are now both identified.
+
 ## Numerical evidence (reproducible)
 
 - `bound_validation.py` — solver vs SciPy; the ε = 0 bound; n-independence; the effective-rank

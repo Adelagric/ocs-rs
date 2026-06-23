@@ -256,6 +256,17 @@ résiduelle est désormais nette et scalaire --- borner $R(\bc^\star)$ a priori 
 cardinalité brute $|S|$ vaut $\approx 1{,}5$--$2{,}5\times \mathrm{PR}$ ici ; $\mathrm{PR}$ est la
 quantité à loi propre.) Vérifié dans \texttt{bound\_kernel.py}.
 
+\textbf{Attaquer ce résidu.} La relaxation sans contrainte (on lâche $\bc \ge 0$) a une forme fermée,
+$R_{\mathrm{relax}} = (\beta\tp\bG^{-1}\beta)/(\beta\tp\bG^{-2}\beta)$ avec $\beta = \bb - \mu\bone$ ---
+une moyenne des $\lambda$ pondérée par $\beta_i^2/\lambda_i^2$, donc petite sous (A2). Mais elle ne
+prédit $R(\bc^\star)$ que lorsque $\bc \ge 0$ est quasi-inactif : sur les panels réels l'optimum sans
+contrainte porte de grandes composantes négatives ($\min \approx -1$ à $-2{,}6$) et
+$R_{\mathrm{relax}}$ tombe $60$--$300\times$ sous $R(\bc^\star)$. Donc \textbf{la non-négativité est le
+cœur irréductible} --- de fait, $|S|$ est la cardinalité de l'optimum d'un QP contraint en positivité,
+dur en général --- et une preuve doit être \emph{genuinely} $\bc \ge 0$-aware, pas un court-circuit par
+relaxation. La prise a priori (la formule de relaxation) et l'obstacle irréductible ($\bc \ge 0$) sont
+désormais tous deux identifiés.
+
 \section*{Évidence numérique (reproductible)}
 
 \texttt{bound\_validation.py} (la borne $\varepsilon=0$, la n-indépendance, les balayages ridge et
