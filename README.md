@@ -93,6 +93,28 @@ cargo run --release -- scale --n 5000 --route a   # one timing point (CSV row on
 `stdout` is data; progress goes to `stderr`. Flags:
 `--n --m --seed --k-frac --route a|b --max-iter --time-limit --max-n`.
 
+## Python
+
+The people who run OCS work in R and Python, not Rust — so the solver is callable
+from Python, numpy in and numpy out:
+
+```sh
+pip install maturin
+cd bindings/python && maturin develop --release
+```
+
+```python
+import ocs_rs
+res = ocs_rs.solve(Z, b, k=0.03, s=s, male=male)   # Z: (n, m) centred genotypes
+res.support, res.gain            # the handful of selected candidates, and the gain
+```
+
+Details in [`bindings/python/README.md`](bindings/python/README.md). The bindings sit in
+their own crate, so the core keeps the pure-Rust dependency surface above; the wheel is
+`abi3`, so one build serves future interpreters. Correctness is checked against an
+independent optimiser (SciPy SLSQP), not just against the Rust solver. An R package
+(extendr) is the next step.
+
 ## Reproduction
 
 ```sh

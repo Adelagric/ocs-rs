@@ -17,6 +17,16 @@ faer = { version = "=0.24.0", default-features = false, features = ["linalg", "s
 rand = "=0.10.1"
 rand_distr = "=0.6.0"
 
+[workspace]
+# The Python bindings live in their own crate so that pyo3 never enters the core
+# crate's dependency surface (which stays pure-Rust, no FFI, no system BLAS).
+members = ["bindings/python"]
+# Plain `cargo build`/`cargo test` stay on the core crate: the bindings cdylib
+# resolves its Python symbols at import time, so it is linked by maturin rather
+# than by a default workspace build. `cargo clippy --workspace` still covers it
+# (clippy checks without linking).
+default-members = ["."]
+
 [profile.release]
 # Representative-but-fast benchmark profile. Documented in BENCHES.md so the
 # reported numbers are never mistaken for a maximally-tuned (fat-LTO) build.

@@ -1,0 +1,21 @@
+[package]
+name = "ocs-rs-py"
+version = "0.1.0"
+edition = "2024"
+description = "Python bindings for the support-first genomic optimum contribution selection solver."
+license = "MIT"
+publish = false
+
+[lib]
+# Native extension module imported as `ocs_rs._ocs_rs` by the Python wrapper.
+name = "_ocs_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+# Bindings only. `abi3-py39` builds against CPython's stable ABI, so one wheel
+# keeps working on future interpreters (this machine runs 3.14).
+pyo3 = { version = "=0.29.0", features = ["extension-module", "abi3-py39"] }
+# Must match the core crate's spec exactly — two faer versions in the graph would
+# make `Mat<f64>` a different type and fail to compile.
+faer = { version = "=0.24.0", default-features = false, features = ["linalg", "std", "rayon"] }
+ocs_rs = { path = "../.." }

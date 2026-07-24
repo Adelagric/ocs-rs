@@ -1,0 +1,30 @@
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "ocs-rs"
+version = "0.1.0"
+description = "Exact, matrix-free optimum contribution selection (OCS) at genomic scale"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Adel Kaleche" }]
+keywords = ["optimum-contribution-selection", "genomic-selection", "breeding", "quantitative-genetics", "optimization"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = ["numpy>=1.21"]
+
+[project.urls]
+Homepage = "https://github.com/Adelagric/ocs-rs"
+Source = "https://github.com/Adelagric/ocs-rs"
+
+[tool.maturin]
+# Mixed layout: pure-Python wrapper in python/, native extension built from src/.
+python-source = "python"
+module-name = "ocs_rs._ocs_rs"
+features = ["pyo3/extension-module"]

@@ -24,3 +24,11 @@
 
 # Private outreach drafts — kept local, never published
 /research/contact_*.md
+
+# Python bindings: virtualenv, compiled extension, caches (rebuild: maturin develop)
+/.venv/
+__pycache__/
+*.py[cod]
+*.abi3.so
+.pytest_cache/
+*.egg-info/
