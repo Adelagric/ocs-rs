@@ -89,7 +89,9 @@ def read_plink(prefix) -> Panel:
     Only SNP-major ``.bed`` files are read (PLINK ≥ 1.9 writes those by default).
     """
     out = _rs.read_plink(str(prefix))
-    z = np.asarray(out["z"], dtype=np.float64).reshape(int(out["n"]), int(out["m"]))
+    # `out["z"]` is raw row-major float64 bytes; frombuffer views them without a copy,
+    # reshape lays out the (n, m) matrix. A copy makes it writable for the caller.
+    z = np.frombuffer(out["z"], dtype=np.float64).reshape(int(out["n"]), int(out["m"])).copy()
     return Panel(
         Z=z,
         p=np.asarray(out["p"], dtype=np.float64),
@@ -150,20 +152,24 @@ def solve(
     b = np.ascontiguousarray(b, dtype=np.float64).ravel()
     if b.shape[0] != n:
         raise ValueError(f"b has length {b.shape[0]}, expected n = {n}")
-    zf = Z.ravel()  # row-major, matching the Rust reader
+    # Raw row-major float64 bytes, not a Python-level sequence: the native side
+    # reads them in one pass, avoiding an element-by-element copy through the
+    # interpreter that dominates the call once the solve is milliseconds. Z is
+    # already C-contiguous float64 above, so tobytes() is a single memcpy.
+    zb = Z.tobytes()
 
     if male is None and caps is None:
-        out = _rs.solve(zf, n, m, s, ridge, b, k, max_iter, tol)
+        out = _rs.solve(zb, n, m, s, ridge, b, k, max_iter, tol)
     elif male is None:
         c_ = np.ascontiguousarray(caps, dtype=np.float64).ravel()
-        out = _rs.solve_capped(zf, n, m, s, ridge, b, c_, k, max_iter, tol)
+        out = _rs.solve_capped(zb, n, m, s, ridge, b, c_, k, max_iter, tol)
     elif caps is None:
         mk = np.ascontiguousarray(male, dtype=bool).ravel().tolist()
-        out = _rs.solve_sexed(zf, n, m, s, ridge, b, mk, k, max_iter, tol)
+        out = _rs.solve_sexed(zb, n, m, s, ridge, b, mk, k, max_iter, tol)
     else:
         mk = np.ascontiguousarray(male, dtype=bool).ravel().tolist()
         c_ = np.ascontiguousarray(caps, dtype=np.float64).ravel()
-        out = _rs.solve_sexed_capped(zf, n, m, s, ridge, b, mk, c_, k, max_iter, tol)
+        out = _rs.solve_sexed_capped(zb, n, m, s, ridge, b, mk, c_, k, max_iter, tol)
 
     return OcsResult(
         c=np.asarray(out["c"], dtype=np.float64),
