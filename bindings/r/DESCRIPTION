@@ -1,0 +1,20 @@
+Package: ocsrs
+Title: Exact Matrix-Free Optimum Contribution Selection
+Version: 0.1.0
+Authors@R:
+    person("Adel", "Kaleche", email = "kaleche@gmail.com", role = c("aut", "cre"))
+Description: Solves genomic optimum contribution selection exactly: maximise
+    genetic gain subject to a cap on the mean coancestry of the next generation,
+    with non-negative contributions summing to one (or to one half per sex).
+    The active support of the optimum is found by column generation and each
+    fixed support is solved in closed form, so the dense n-by-n genomic
+    relationship matrix is never formed; kinship products come straight from the
+    genotype matrix. PLINK binary panels are read directly.
+License: MIT + file LICENSE
+Encoding: UTF-8
+SystemRequirements: Cargo (Rust's package manager), rustc
+Config/rextendr/version: 0.5.0
+RoxygenNote: 7.3.3
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

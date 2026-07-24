@@ -1,0 +1,26 @@
+[package]
+name = "ocsrs"
+version = "0.1.0"
+edition = "2021"
+description = "R bindings for the support-first genomic optimum contribution selection solver."
+license = "MIT"
+publish = false
+
+[lib]
+# R loads a shared object linked against the static library (see src/Makevars.in);
+# `lib` is also needed so the `document` binary can call into this crate to emit the
+# R wrappers at install time.
+crate-type = ["staticlib", "lib"]
+name = "ocsrs"
+
+[dependencies]
+# Bindings only; the FFI stays in this crate, never in the core.
+extendr-api = "=0.9.0"
+# Must match the core crate's spec exactly — two faer versions in the graph would
+# make `Mat<f64>` a different type and fail to compile.
+faer = { version = "=0.24.0", default-features = false, features = ["linalg", "std", "rayon"] }
+ocs_rs = { path = "../../../.." }
+
+# Own workspace root: `R CMD INSTALL` builds this crate from a source tarball in
+# which the repository's workspace does not exist.
+[workspace]

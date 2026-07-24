@@ -139,6 +139,31 @@ Linux (x86_64, aarch64), macOS (Intel, Apple silicon) and Windows plus an sdist,
 uploads them on a `v*` tag. Until such a tag is pushed with a `PYPI_API_TOKEN` secret
 in place, `pip install ocs-rs` does not resolve — build from source as above.
 
+## R
+
+The domain's own tool is an R package, so the solver is an R package too:
+
+```sh
+R CMD INSTALL bindings/r
+```
+
+```r
+library(ocsrs)
+panel <- read_plink("cattle")                      # or bring your own centred Z
+res <- ocs_solve(panel$Z, b = ebv, k = 0.03, s = panel$s, male = sex == "male")
+res$support                                        # 1-based, as R users expect
+```
+
+Matrices are read in R's own column-major layout, so neither side transposes, and
+supports come back 1-based — the two conventions that would otherwise fail silently
+are covered by tests that recompute the answer with R's own arithmetic.
+[`research/repro/r_binding_optisel.R`](research/repro/r_binding_optisel.R) runs
+support-first and optiSel in one session on one instance with the conventions
+aligned exactly (optiSel constrains `c' sKin c ≤ ub` on `sKin = G/2 + εI`, hence
+`k = 2·ub` and `ridge = 2ε`), and prints gain, realised coancestry, support and time
+for both — reproducible rather than asserted. The FFI lives in
+[`bindings/r`](bindings/r), never in the core.
+
 ## Reproduction
 
 ```sh

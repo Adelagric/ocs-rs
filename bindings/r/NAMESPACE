@@ -1,0 +1,9 @@
+# Written by hand (the roxygen path needs devtools; see R/extendr-wrappers.R).
+useDynLib(ocsrs, .registration = TRUE)
+
+export(ocs_solve)
+export(read_plink)
+export(vanraden_scale)
+
+S3method(print, ocs_result)
+S3method(print, ocs_panel)
