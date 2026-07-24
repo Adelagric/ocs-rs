@@ -15,6 +15,10 @@ pub enum OcsError {
     /// Clarabel rejected the problem data (a constructor-level error, i.e. a
     /// bug in our assembly rather than a numerical outcome).
     SolverInit(String),
+    /// I/O failure while reading a genotype file.
+    Io(String),
+    /// A genotype file did not match the expected format.
+    Format(String),
 }
 
 impl fmt::Display for OcsError {
@@ -28,6 +32,8 @@ impl fmt::Display for OcsError {
                 write!(f, "ridge escalation exhausted (largest tried: {ridge:e})")
             }
             OcsError::SolverInit(msg) => write!(f, "Clarabel rejected problem data: {msg}"),
+            OcsError::Io(msg) => write!(f, "genotype file I/O error: {msg}"),
+            OcsError::Format(msg) => write!(f, "malformed genotype file: {msg}"),
         }
     }
 }

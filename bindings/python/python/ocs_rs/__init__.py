@@ -25,7 +25,7 @@ import numpy as np
 
 from . import _ocs_rs as _rs
 
-__all__ = ["solve", "OcsResult", "vanraden_scale"]
+__all__ = ["solve", "read_plink", "OcsResult", "Panel", "vanraden_scale"]
 __version__ = "0.1.0"
 
 
@@ -53,6 +53,49 @@ class OcsResult:
             f"OcsResult(status={self.status!r}, |support|={len(self.support)}, "
             f"gain={self.gain:.6g}, quad={self.quad:.6g}, products={self.products})"
         )
+
+
+@dataclass
+class Panel:
+    """A marker panel read from PLINK files, ready to hand to :func:`solve`."""
+
+    Z: np.ndarray
+    p: np.ndarray
+    s: float
+    ids: list
+
+    @property
+    def n(self) -> int:
+        return int(self.Z.shape[0])
+
+    @property
+    def m(self) -> int:
+        return int(self.Z.shape[1])
+
+    def __repr__(self) -> str:  # concise, Z is usually large
+        return f"Panel(n={self.n}, m={self.m}, s={self.s:.6g})"
+
+
+def read_plink(prefix) -> Panel:
+    """Read a PLINK 1 trio ``<prefix>.bed`` / ``.bim`` / ``.fam``.
+
+    Genotypes are centred by twice the allele frequency estimated from the
+    non-missing calls, and missing calls are imputed to the marker mean — so
+    ``panel.Z`` and ``panel.s`` go straight into :func:`solve`:
+
+    >>> panel = ocs_rs.read_plink("cattle")
+    >>> res = ocs_rs.solve(panel.Z, b, k=0.03, s=panel.s)
+
+    Only SNP-major ``.bed`` files are read (PLINK ≥ 1.9 writes those by default).
+    """
+    out = _rs.read_plink(str(prefix))
+    z = np.asarray(out["z"], dtype=np.float64).reshape(int(out["n"]), int(out["m"]))
+    return Panel(
+        Z=z,
+        p=np.asarray(out["p"], dtype=np.float64),
+        s=float(out["s"]),
+        ids=list(out["ids"]),
+    )
 
 
 def vanraden_scale(freqs) -> float:

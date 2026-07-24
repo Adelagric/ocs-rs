@@ -93,6 +93,26 @@ cargo run --release -- scale --n 5000 --route a   # one timing point (CSV row on
 `stdout` is data; progress goes to `stderr`. Flags:
 `--n --m --seed --k-frac --route a|b --max-iter --time-limit --max-n`.
 
+## Genotypes in
+
+Real panels are stored as PLINK binaries, so the solver reads them directly — no
+conversion step, and the dense `G` still never exists:
+
+```rust
+let panel = ocs_rs::plink::read_panel(Path::new("cattle"))?;   // cattle.bed/.bim/.fam
+```
+
+```python
+panel = ocs_rs.read_plink("cattle")
+res = ocs_rs.solve(panel.Z, b, k=0.03, s=panel.s)
+```
+
+Genotypes are centred by twice the allele frequency estimated from the non-missing
+calls (missing ones imputed to the marker mean), so `panel.Z` and `panel.s` feed
+`solve` as they are. SNP-major `.bed` only — PLINK ≥ 1.9's default; the trio is
+cross-checked on size, so mismatched files fail with a shape message instead of
+decoding shifted genotypes. VCF is not read: convert with `plink --vcf`.
+
 ## Python
 
 The people who run OCS work in R and Python, not Rust — so the solver is callable
@@ -112,8 +132,12 @@ res.support, res.gain            # the handful of selected candidates, and the g
 Details in [`bindings/python/README.md`](bindings/python/README.md). The bindings sit in
 their own crate, so the core keeps the pure-Rust dependency surface above; the wheel is
 `abi3`, so one build serves future interpreters. Correctness is checked against an
-independent optimiser (SciPy SLSQP), not just against the Rust solver. An R package
-(extendr) is the next step.
+independent optimiser (SciPy SLSQP), not just against the Rust solver.
+
+[`.github/workflows/wheels.yml`](.github/workflows/wheels.yml) builds wheels for
+Linux (x86_64, aarch64), macOS (Intel, Apple silicon) and Windows plus an sdist, and
+uploads them on a `v*` tag. Until such a tag is pushed with a `PYPI_API_TOKEN` secret
+in place, `pip install ocs-rs` does not resolve — build from source as above.
 
 ## Reproduction
 

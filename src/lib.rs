@@ -16,6 +16,7 @@
 pub mod datagen;
 pub mod error;
 pub mod grm;
+pub mod plink;
 pub mod report;
 pub mod socp;
 pub mod solve;

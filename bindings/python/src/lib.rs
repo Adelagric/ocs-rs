@@ -154,9 +154,36 @@ fn solve_sexed_capped<'py>(
     to_dict(py, out)
 }
 
+/// Read a PLINK 1 trio (`<prefix>.bed`/`.bim`/`.fam`) into centred genotypes.
+///
+/// Returns the flat row-major `z` with its shape, so the Python layer can reshape it
+/// without this crate depending on a numpy-interop crate.
+#[pyfunction]
+fn read_plink<'py>(py: Python<'py>, prefix: &str) -> PyResult<Bound<'py, PyDict>> {
+    let panel = py
+        .detach(|| ocs_rs::plink::read_panel(std::path::Path::new(prefix)))
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let (n, m) = (panel.n, panel.m);
+    let mut flat = Vec::with_capacity(n * m);
+    for i in 0..n {
+        for j in 0..m {
+            flat.push(panel.z[(i, j)]);
+        }
+    }
+    let d = PyDict::new(py);
+    d.set_item("z", flat)?;
+    d.set_item("n", n)?;
+    d.set_item("m", m)?;
+    d.set_item("p", panel.p)?;
+    d.set_item("s", panel.s)?;
+    d.set_item("ids", panel.ids)?;
+    Ok(d)
+}
+
 #[pymodule]
 fn _ocs_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(solve, m)?)?;
+    m.add_function(wrap_pyfunction!(read_plink, m)?)?;
     m.add_function(wrap_pyfunction!(solve_sexed, m)?)?;
     m.add_function(wrap_pyfunction!(solve_capped, m)?)?;
     m.add_function(wrap_pyfunction!(solve_sexed_capped, m)?)?;
