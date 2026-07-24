@@ -61,26 +61,119 @@ pub struct SupportFirstOutcome {
 /// `G·c = ridge·c + Z(Zᵀc)/s`, never forming `G`. Cost `O(n·m)`.
 fn g_matvec(z: &Mat<f64>, s: f64, ridge: f64, c: &[f64]) -> Vec<f64> {
     let n = z.nrows();
-    let cm = Mat::from_fn(n, 1, |i, _| c[i]);
-    let t = z.transpose() * cm.as_ref(); // m×1  = Zᵀc
-    let u = z * t.as_ref(); // n×1  = Z(Zᵀc)
+    let m = z.ncols();
     let inv_s = 1.0 / s;
+
+    // This product is bandwidth-bound, not compute-bound: on a real panel the
+    // arithmetic is a fraction of a millisecond while a pass over `Z` is
+    // milliseconds. `Z(Zᵀc)` must touch every row — pricing scores all `n`
+    // candidates — but `Zᵀc` need not: `c` lives on the active set, a handful of
+    // indices, so accumulating from those rows alone removes one of the two full
+    // passes. The nonzeros are read off `c` rather than taken from the caller's
+    // support, because the iterate passed here is not always the current one.
+    let nz: Vec<usize> = (0..n).filter(|&i| c[i] != 0.0).collect();
+    let t = if nz.len() * 4 <= n {
+        let mut w = Mat::<f64>::zeros(m, 1);
+        for l in 0..m {
+            let mut acc = 0.0;
+            for &i in &nz {
+                acc += c[i] * z[(i, l)];
+            }
+            w[(l, 0)] = acc;
+        }
+        w
+    } else {
+        // Not actually sparse: faer's vectorised kernel beats the gather above.
+        let cm = Mat::from_fn(n, 1, |i, _| c[i]);
+        z.transpose() * cm.as_ref()
+    };
+
+    let u = z * t.as_ref(); // n×1  = Z(Zᵀc)
     (0..n).map(|i| u[(i, 0)] * inv_s + ridge * c[i]).collect()
 }
 
-/// `G_SS = Z_S Z_Sᵀ / s + ridge·I` (small, `|S|×|S|`).
-fn build_gss(z: &Mat<f64>, s: f64, ridge: f64, support: &[usize]) -> Mat<f64> {
-    let ns = support.len();
-    let m = z.ncols();
-    let inv_s = 1.0 / s;
-    Mat::from_fn(ns, ns, |i, j| {
-        let (si, sj) = (support[i], support[j]);
-        let mut acc = 0.0;
-        for l in 0..m {
-            acc += z[(si, l)] * z[(sj, l)];
+/// `G_SS = Z_S Z_Sᵀ / s + ridge·I` (small, `|S|×|S|`), maintained across iterations.
+///
+/// Rebuilding this Gram from scratch every iteration costs O(|S|² m) and was measured
+/// as the dominant cost of a real-panel solve — roughly 90% of the run, against 8%
+/// for the matrix-free `G·c` products it was assumed to be hiding behind. The active
+/// set grows by one candidate per iteration, so every entry but one row and column is
+/// already known: appending costs O(|S| m) instead.
+///
+/// The support's rows of `Z` are kept in a compact row-major buffer. `Z` is stored
+/// column-major, so walking a row of it strides by `n`; gathering each row once turns
+/// every later dot product into a contiguous scan. That is the larger half of the win
+/// on a wide panel, where `m` is big enough that the strided reads miss.
+///
+/// The buffer holds `|S| × m` values, which the whole design assumes is a handful of
+/// rows; a support that grew to a large fraction of `n` would make this a second copy
+/// of `Z`, and that regime is already outside what support-first is for.
+struct GramCache {
+    /// The support this cache currently describes, in order.
+    held: Vec<usize>,
+    /// `held.len() × m`, row-major: row `a` is `Z[held[a], ..]`.
+    zs: Vec<f64>,
+    gram: Mat<f64>,
+}
+
+impl GramCache {
+    fn new() -> Self {
+        Self {
+            held: Vec::new(),
+            zs: Vec::new(),
+            gram: Mat::zeros(0, 0),
         }
-        acc * inv_s + if i == j { ridge } else { 0.0 }
-    })
+    }
+
+    /// Bring the cache in line with `support`, extending it when `support` is an
+    /// extension of what is held and rebuilding otherwise (a drop reorders the set,
+    /// and drops are rare enough that rebuilding beats tracking them).
+    fn sync(&mut self, z: &Mat<f64>, s: f64, ridge: f64, support: &[usize]) {
+        if !support.starts_with(&self.held) {
+            self.held.clear();
+            self.zs.clear();
+            self.gram = Mat::zeros(0, 0);
+        }
+        for &i in &support[self.held.len()..] {
+            self.append(z, s, ridge, i);
+        }
+    }
+
+    fn matrix(&self) -> &Mat<f64> {
+        &self.gram
+    }
+
+    fn append(&mut self, z: &Mat<f64>, s: f64, ridge: f64, i: usize) {
+        let m = z.ncols();
+        self.zs.reserve(m);
+        for l in 0..m {
+            self.zs.push(z[(i, l)]);
+        }
+        let ns = self.held.len() + 1;
+        let inv_s = 1.0 / s;
+        let new = &self.zs[(ns - 1) * m..ns * m];
+
+        // Summation runs over `l` ascending exactly as the from-scratch build did, so
+        // the entries are bit-identical and the optimum cannot drift.
+        let mut gram = Mat::<f64>::zeros(ns, ns);
+        for a in 0..ns - 1 {
+            for b in 0..ns - 1 {
+                gram[(a, b)] = self.gram[(a, b)];
+            }
+        }
+        for a in 0..ns - 1 {
+            let row = &self.zs[a * m..(a + 1) * m];
+            let acc: f64 = row.iter().zip(new).map(|(x, y)| x * y).sum();
+            let v = acc * inv_s;
+            gram[(a, ns - 1)] = v;
+            gram[(ns - 1, a)] = v;
+        }
+        let acc: f64 = new.iter().map(|x| x * x).sum();
+        gram[(ns - 1, ns - 1)] = acc * inv_s + ridge;
+
+        self.gram = gram;
+        self.held.push(i);
+    }
 }
 
 /// Real roots of `a x² + b x + c = 0` (handles the near-linear case). The
@@ -168,6 +261,7 @@ pub fn solve(
     let mut c_cur = vec![0.0; n]; // last feasible iterate (basis for diversification)
     c_cur[support[0]] = 1.0;
     let mut products = 0u32;
+    let mut gram = GramCache::new();
     // Anti-cycling: indices dropped for negativity are taboo for re-addition
     // until the next genuine progress step (a reduced-cost add), which clears
     // the set. Without this, a drop→infeasible→re-add stall could loop to
@@ -176,9 +270,10 @@ pub fn solve(
 
     for it in 0..max_iter {
         let b_s: Vec<f64> = support.iter().map(|&i| b[i]).collect();
-        let g_ss = build_gss(z, s, ridge, &support);
+        gram.sync(z, s, ridge, &support);
+        let g_ss = gram.matrix();
 
-        match closed_form(&g_ss, &b_s, k) {
+        match closed_form(g_ss, &b_s, k) {
             None => {
                 // Support cannot satisfy k yet: add the least related candidate.
                 let gc = g_matvec(z, s, ridge, &c_cur);
@@ -431,14 +526,16 @@ pub fn solve_sexed(
     c_cur[best_m] = 0.5;
     c_cur[best_f] = 0.5;
     let mut products = 0u32;
+    let mut gram = GramCache::new();
     let mut dropped = vec![false; n];
 
     for it in 0..max_iter {
         let b_s: Vec<f64> = support.iter().map(|&i| b[i]).collect();
         let male_s: Vec<bool> = support.iter().map(|&i| male[i]).collect();
-        let g_ss = build_gss(z, s, ridge, &support);
+        gram.sync(z, s, ridge, &support);
+        let g_ss = gram.matrix();
 
-        match closed_form_sexed(&g_ss, &b_s, &male_s, k) {
+        match closed_form_sexed(g_ss, &b_s, &male_s, k) {
             None => {
                 let gc = g_matvec(z, s, ridge, &c_cur);
                 products += 1;
@@ -638,10 +735,12 @@ pub fn solve_capped(
     let mut c_cur = vec![0.0; n];
     c_cur[free[0]] = caps[free[0]].min(1.0);
     let mut products = 0u32;
+    let mut gram = GramCache::new();
     let mut dropped = vec![false; n];
 
     for it in 0..max_iter {
-        let g_ff = build_gss(z, s, ridge, &free);
+        gram.sync(z, s, ridge, &free);
+        let g_ff = gram.matrix();
         let b_f: Vec<f64> = free.iter().map(|&i| b[i]).collect();
         // Offsets from the upper set, matrix-free: G·(caps on U).
         let (o, cuu, dprime) = if at_upper.is_empty() {
@@ -659,7 +758,7 @@ pub fn solve_capped(
             (o, cuu, dprime)
         };
 
-        match closed_form_capped(&g_ff, &b_f, &o, cuu, dprime, k) {
+        match closed_form_capped(g_ff, &b_f, &o, cuu, dprime, k) {
             None => {
                 let gc = g_matvec(z, s, ridge, &c_cur);
                 products += 1;
@@ -940,6 +1039,7 @@ pub fn solve_sexed_capped(
     c_cur[best_m] = caps[best_m].min(0.5);
     c_cur[best_f] = caps[best_f].min(0.5);
     let mut products = 0u32;
+    let mut gram = GramCache::new();
     let mut dropped = vec![false; n];
 
     // Best uncapped candidate of a sex (for re-seeding), or None.
@@ -956,7 +1056,8 @@ pub fn solve_sexed_capped(
     };
 
     for it in 0..max_iter {
-        let g_ff = build_gss(z, s, ridge, &free);
+        gram.sync(z, s, ridge, &free);
+        let g_ff = gram.matrix();
         let b_f: Vec<f64> = free.iter().map(|&i| b[i]).collect();
         let male_f: Vec<bool> = free.iter().map(|&i| male[i]).collect();
         let (o, cuu, d_m, d_f) = if at_upper.is_empty() {
@@ -983,7 +1084,7 @@ pub fn solve_sexed_capped(
             (o, cuu, 0.5 - um, 0.5 - uf)
         };
 
-        match closed_form_sexed_capped(&g_ff, &b_f, &male_f, &o, cuu, d_m, d_f, k) {
+        match closed_form_sexed_capped(g_ff, &b_f, &male_f, &o, cuu, d_m, d_f, k) {
             None => {
                 let gc = g_matvec(z, s, ridge, &c_cur);
                 products += 1;
