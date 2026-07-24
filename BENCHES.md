@@ -109,3 +109,80 @@ iterations observed). So the solve necessarily dwarfs the single Cholesky. The
 ratio is reported in `REPORT.md` as **context**, not as a verdict gate; the
 substantive gates are reliability (`Solved` + feasible), monotone frontier,
 bounded conditioning, reaching n=10000 within 36 GB, and sub-`n^3.5` growth.
+
+## 2026-07-25 — the matrix-free solver, timed on real panels for the first time
+
+Hardware: Apple M4 Max (14 cores), macOS 25.5.0 arm64. Toolchain: rustc 1.95.0
+(release profile), R 4.6.0, optiSel 2.1.0. Genotypes reach the Rust core through
+the R binding (`bindings/r`) so support-first and optiSel run in one session on one
+instance; the matrix-free times below are the whole `ocs_solve` call including the
+R→Rust copy unless stated otherwise.
+
+**Why this section exists.** The manuscript's Table 2 credits its support-first
+timings to a NumPy prototype (`research/repro/sf_at_ub.py`) that consumes the dense
+kinship matrix `K` and slices `K[S,S]` by indexing. Every export script writes only
+`K`, so the *matrix-free* path — the one the crate ships — had never been timed on
+real data. It has now.
+
+### optiSel vs the shipped matrix-free solver, same session
+
+Sexed OCS. Synthetic rows use a tight cap (`ub = 1.04 × mean coancestry`), which
+forces a large support — the hard case; wheat/mouse use each export script's own
+cap (`0.12`/`0.15 × k_greedy`).
+
+| instance | n | m | support | optiSel | matrix-free | speed-up |
+|---|---|---|---|---|---|---|
+| synthetic (structured) | 1000 | 500 | 55 | 2.10 s | 0.118 s | 18× |
+| synthetic (structured) | 2000 | 500 | 105 | 13.46 s | 0.256 s | 53× |
+| synthetic (structured) | 5000 | 500 | 152 | 165.8 s | 0.830 s | 200× |
+| CIMMYT wheat (real GRM) | 599 | 1279 | 24 | 0.617 s | 0.008 s | 77× |
+| HS mouse (real GRM, real sex) | 1814 | 10346 | 19 | 7.04 s | 0.061 s | 125× |
+
+optiSel reproduces its Table 2 numbers (wheat 0.62 vs 0.63, mouse 7.0 vs 6.96), so
+the instances match and the whole difference sits in the support-first column. These
+matrix-free speed-ups (15×–200×) are lower than Table 2's 90×–2280×, because the
+prototype's numbers exclude the cost of *forming* `G` and use dense `K[S,S]` slicing
+where the matrix-free path recomputes from `Z`. Exactness is unchanged and
+re-confirmed: every row reaches the constraint boundary optiSel's IPM stops just
+inside, with a small positive gain gap, budget and sex split exact to 1e-9.
+
+### Charge the dense route for building G
+
+The prototype gets `K` for free. Built end to end, the dense GRM costs (this
+hardware): wheat 0.007 s, mouse 0.129 s. So on the mouse the matrix-free solve
+(0.032 s, marshalling removed) beats *merely constructing* the dense `G` (0.129 s) —
+the 870× in Table 2 came from a 0.008 s that excluded that 0.129 s and is not
+reproducible under any honest end-to-end accounting.
+
+### The dense/matrix-free crossover is two-axis, not one
+
+Comparing the whole matrix-free solve against dense `G` construction alone:
+
+- At modest `m` (=1000), matrix-free wins at every `n` measured — it finishes a full
+  solve faster than a dense solver can *build* `G` (n=1000: 4.1 ms vs 7 ms build;
+  n=30000: 30 ms vs 4.65 s build). `examples/scaling_matrixfree`.
+- At marker-rich `m` (=10000, mouse-like), building `G` is cheaper for small `n`
+  (n≤~1500), and matrix-free takes over above that. The real panels fall on the
+  matrix-free side, but the win is not universal — it is a genuine two-axis
+  trade-off (dense build O(n²m) vs a solve whose cost tracks n, m and the support).
+
+Numbers are noisy in the support because support size varies with the cap and the
+instance, and it — not n or m alone — sets the per-solve work.
+
+### What made the matrix-free solve fast enough to say this (same hardware)
+
+Two changes, each leaving the optimum bit-identical:
+
+- **Incremental Gram + cached support rows** (`build_gss` → `GramCache`). Rebuilding
+  the |S|×|S| Gram every iteration was ~90% of a mouse solve; keeping it and the
+  support's rows of `Z` across iterations, and gathering those rows once so later dot
+  products scan contiguously, cut the solve roughly in half and more:
+  `scaling_matrixfree` (m=1000, sexed) n=1000 0.0083→0.0041 s, n=40000 0.0769→0.0409 s;
+  real panels wheat 0.041→0.008 s, mouse 0.624→0.061 s.
+- **Bytes marshalling in the Python binding.** Once the solve was milliseconds, pyo3
+  extracting a `Vec<f64>` element-by-element dominated a call (n=16000 m=2000: 714 ms).
+  Passing `Z.tobytes()` and borrowing `&[u8]`: 714→79 ms; n=1000 44→1.5 ms.
+
+The `G·c` product itself was only ~8% of a mouse solve, not the bottleneck the design
+assumed; exploiting the sparsity of `c` there still gives 1.5×–1.8× on the product
+(`examples/bench_matvec`), kept because it is free, but it is not where the time was.
