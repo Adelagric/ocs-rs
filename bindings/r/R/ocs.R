@@ -52,9 +52,10 @@ ocs_solve <- function(Z, b, k, s, ridge = 1e-5, male = NULL, caps = NULL,
     stop("`s` must be a single positive number; see `vanraden_scale()`.")
   }
 
-  # R stores matrices column-major and the Rust side reads them that way, so this
-  # is a reinterpretation rather than a transpose.
-  z <- as.numeric(Z)
+  # R stores matrices column-major and the Rust side borrows that buffer directly, so
+  # neither `as.numeric` (which would flatten-copy) nor a transpose is needed. Coerce
+  # to double only when Z is not already double, so the common case copies nothing.
+  if (!is.double(Z)) storage.mode(Z) <- "double"
   n_i <- as.integer(n)
   m_i <- as.integer(m)
   it <- as.integer(max_iter)
@@ -80,13 +81,13 @@ ocs_solve <- function(Z, b, k, s, ridge = 1e-5, male = NULL, caps = NULL,
   }
 
   out <- if (is.null(male) && is.null(caps)) {
-    sf_solve(z, n_i, m_i, s, ridge, b, k, it, tol)
+    sf_solve(Z, n_i, m_i, s, ridge, b, k, it, tol)
   } else if (is.null(male)) {
-    sf_solve_capped(z, n_i, m_i, s, ridge, b, caps, k, it, tol)
+    sf_solve_capped(Z, n_i, m_i, s, ridge, b, caps, k, it, tol)
   } else if (is.null(caps)) {
-    sf_solve_sexed(z, n_i, m_i, s, ridge, b, male, k, it, tol)
+    sf_solve_sexed(Z, n_i, m_i, s, ridge, b, male, k, it, tol)
   } else {
-    sf_solve_sexed_capped(z, n_i, m_i, s, ridge, b, male, caps, k, it, tol)
+    sf_solve_sexed_capped(Z, n_i, m_i, s, ridge, b, male, caps, k, it, tol)
   }
 
   structure(out, class = "ocs_result")

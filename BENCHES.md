@@ -186,3 +186,39 @@ Two changes, each leaving the optimum bit-identical:
 The `G·c` product itself was only ~8% of a mouse solve, not the bottleneck the design
 assumed; exploiting the sparsity of `c` there still gives 1.5×–1.8× on the product
 (`examples/bench_matvec`), kept because it is free, but it is not where the time was.
+
+### Update — pig measured, and the R binding made zero-copy
+
+The PIC pig panel (n=3534, **52 843 SNP**) was found locally and measured. It exposed
+the next bottleneck: the R binding copied the genotype matrix three times (R
+`as.numeric` flatten → extendr `Vec<f64>` → faer build), and at 1.5 GB that dominated
+the call. Taking the matrix as a borrowed `Robj` (`as_real_slice`, R's own
+column-major buffer, one gather into faer) removed two of the three passes. Optimum
+bit-identical (28 testthat assertions, all recomputing the answer with R's arithmetic).
+
+Pig, clean, before → after the borrow: end-to-end **1.96 s → 0.61 s**, of which the
+copy **1.96 s → 0.276 s**; speed-up vs optiSel **30× → 88×**. The solve itself is
+~0.34 s (52k markers streamed per product), not the ~1 ms an earlier noisy
+`t_full − t_copy` subtraction suggested — that subtraction was wrong and is not used.
+
+**Clean serial run, all panels, Apple M4 Max, one R session, nothing else running**
+(`research/repro/r_binding_bench_all.R`). Shipped matrix-free solver, end to end
+(including the R→Rust copy), vs optiSel:
+
+| panel | n | m | optiSel | matrix-free | copy | support | speed-up |
+|---|---|---|---|---|---|---|---|
+| synthetic (structured) | 1000 | 500 | 2.11 s | 0.120 s | 0.000 s | 59 | 18× |
+| synthetic (structured) | 2000 | 500 | 13.56 s | 0.282 s | 0.000 s | 111 | 48× |
+| synthetic (structured) | 5000 | 500 | 173.8 s | 0.901 s | 0.004 s | 168 | 193× |
+| CIMMYT wheat | 599 | 1279 | 0.634 s | 0.009 s | 0.000 s | 24 | 70× |
+| PIC pig | 3534 | 52843 | 53.8 s | 0.611 s | 0.276 s | 28 | 88× |
+| HS mouse (real sex) | 1814 | 10346 | 6.94 s | 0.057 s | 0.010 s | 19 | 122× |
+
+optiSel reproduces its manuscript numbers (wheat 0.63, mouse 6.96, pig 54.8), so the
+instances match. Range **18×–193×**, every real panel measured. Exactness re-confirmed
+on all rows: support-first reaches the constraint boundary optiSel stops inside, with
+a small positive gain gap, budget and sex split exact. Synthetic rows are at a tight
+cap (large support 59–168, the hard case); the factor grows with `n` as optiSel's
+interior-point cost climbs. On the pig the copy (0.276 s) is still the largest single
+component of the 0.611 s — the same lesson as the Python `tobytes` fix, one binding
+behind: a true zero-copy `MatRef` into the core (no gather) would cut it further.

@@ -9,6 +9,13 @@
 //!   a transpose.
 //! - **1-based supports.** Indices leave this layer already incremented, so an R
 //!   user never sees a 0-based index.
+//!
+//! The genotype matrix is taken as a borrowed [`Robj`], not a `Vec<f64>`. Extracting
+//! a `Vec` copies R's buffer into a Rust allocation, and on a 52k-marker panel that
+//! copy — on top of the `as.numeric` flatten on the R side and the build into faer —
+//! made three passes over 1.5 GB dominate the call. `as_real_slice` borrows R's own
+//! column-major buffer, so the only remaining copy is the single gather into faer's
+//! matrix (also column-major, so it is a straight copy, no transpose).
 
 use extendr_api::prelude::*;
 // `Result` is not in extendr's prelude, so the glob above leaves std's in scope; this
@@ -29,6 +36,18 @@ fn mat_from_col_major(z: &[f64], n: usize, m: usize) -> Result<Mat<f64>> {
         )));
     }
     Ok(Mat::from_fn(n, m, |i, j| z[j * n + i]))
+}
+
+/// Borrow the genotypes from R's numeric buffer (no copy) and gather them into faer.
+///
+/// `as_real_slice` yields `None` unless the object is a real (double) vector/matrix;
+/// the R wrapper coerces to double, so this rejects only a genuine type error rather
+/// than silently copying.
+fn mat_from_robj(z: &Robj, n: usize, m: usize) -> Result<Mat<f64>> {
+    let zs = z
+        .as_real_slice()
+        .ok_or_else(|| Error::Other("genotypes must be a numeric (double) matrix".to_string()))?;
+    mat_from_col_major(zs, n, m)
 }
 
 fn check_len(name: &str, got: usize, want: usize) -> Result<()> {
@@ -65,7 +84,7 @@ fn to_list(o: SupportFirstOutcome) -> List {
 #[extendr]
 #[allow(clippy::too_many_arguments)]
 fn sf_solve(
-    z: Vec<f64>,
+    z: Robj,
     n: i32,
     m: i32,
     s: f64,
@@ -77,7 +96,7 @@ fn sf_solve(
 ) -> Result<List> {
     let (n, m) = (n as usize, m as usize);
     check_len("b", b.len(), n)?;
-    let zm = mat_from_col_major(&z, n, m)?;
+    let zm = mat_from_robj(&z, n, m)?;
     Ok(to_list(support_first::solve(
         &zm,
         s,
@@ -93,7 +112,7 @@ fn sf_solve(
 #[extendr]
 #[allow(clippy::too_many_arguments)]
 fn sf_solve_sexed(
-    z: Vec<f64>,
+    z: Robj,
     n: i32,
     m: i32,
     s: f64,
@@ -107,7 +126,7 @@ fn sf_solve_sexed(
     let (n, m) = (n as usize, m as usize);
     check_len("b", b.len(), n)?;
     check_len("male", male.len(), n)?;
-    let zm = mat_from_col_major(&z, n, m)?;
+    let zm = mat_from_robj(&z, n, m)?;
     Ok(to_list(support_first::solve_sexed(
         &zm,
         s,
@@ -124,7 +143,7 @@ fn sf_solve_sexed(
 #[extendr]
 #[allow(clippy::too_many_arguments)]
 fn sf_solve_capped(
-    z: Vec<f64>,
+    z: Robj,
     n: i32,
     m: i32,
     s: f64,
@@ -138,7 +157,7 @@ fn sf_solve_capped(
     let (n, m) = (n as usize, m as usize);
     check_len("b", b.len(), n)?;
     check_len("caps", caps.len(), n)?;
-    let zm = mat_from_col_major(&z, n, m)?;
+    let zm = mat_from_robj(&z, n, m)?;
     Ok(to_list(support_first::solve_capped(
         &zm,
         s,
@@ -155,7 +174,7 @@ fn sf_solve_capped(
 #[extendr]
 #[allow(clippy::too_many_arguments)]
 fn sf_solve_sexed_capped(
-    z: Vec<f64>,
+    z: Robj,
     n: i32,
     m: i32,
     s: f64,
@@ -171,7 +190,7 @@ fn sf_solve_sexed_capped(
     check_len("b", b.len(), n)?;
     check_len("male", male.len(), n)?;
     check_len("caps", caps.len(), n)?;
-    let zm = mat_from_col_major(&z, n, m)?;
+    let zm = mat_from_robj(&z, n, m)?;
     Ok(to_list(support_first::solve_sexed_capped(
         &zm,
         s,
