@@ -38,7 +38,7 @@
 \newcommand{\bone}{\mathbf{1}}
 
 \title{\bfseries On the support size of the genomic OCS optimum}
-\author{\textbf{Adel Kaleche}\\[2pt] \small\itshape Affiliation to be completed.}
+\author{\textbf{Adel Kaleche}\\[2pt] \small\itshape Independent researcher, France.}
 \date{}
 
 \begin{document}
@@ -254,12 +254,16 @@ relaxation formula) and the irreducible obstacle ($\bc \ge 0$) are now both iden
 
 \section*{Numerical evidence (reproducible)}
 
+% A run of unbreakable \texttt filenames; \emergencystretch alone cannot absorb it,
+% so let this paragraph stretch its interword space instead.
+\begin{sloppypar}
 \texttt{bound\_validation.py} (the $\varepsilon=0$ bound, $n$-independence, ridge and
 spectral-decay sweeps, and the Theorem~\ref{thm:noridge} counterexample);
 \texttt{bound\_real.py} (wheat and mouse, after \texttt{research/repro/*\_export.R});
 \texttt{bound\_balign.py} (the $\bb$-alignment sweep); \texttt{bound\_predictor.py} and
 \texttt{bound\_lawfit.py} (the predictor / law search); \texttt{bound\_curve.py} (the
 per-instance $|S|(k)$ fit). Full log: \texttt{research/support\_bound\_sketch.md}.
+\end{sloppypar}
 
 \section*{References}
 \sloppy

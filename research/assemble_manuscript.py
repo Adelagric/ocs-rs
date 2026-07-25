@@ -14,7 +14,7 @@ TITLE = (
     "# Exact optimum contribution selection at genomic scale: a matrix-free, "
     "support-first solver validated against optiSel and AlphaMate on real marker panels\n\n"
     "**Adel Kaleche**\n\n"
-    "*Affiliation to be completed.*\n"
+    "*Independent researcher, France.*\n"
 )
 
 AVAILABILITY = (

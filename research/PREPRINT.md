@@ -8,7 +8,7 @@ This framing is robust to the prior-art outcome (see §Novelty): its value does 
 depend on the abstract algorithm being new, but on the genomic-scale matrix-free
 realisation and the empirical demonstration.
 
-Author: Adel Kaleche. Affiliation: TBD (lycée agricole; INRAE collaboration being explored).
+Author: Adel Kaleche. Affiliation: Independent researcher, France.
 Single-author draft.
 
 ---

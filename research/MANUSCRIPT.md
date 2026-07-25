@@ -2,7 +2,7 @@
 
 **Adel Kaleche**
 
-*Affiliation to be completed.*
+*Independent researcher, France.*
 
 
 ## Abstract

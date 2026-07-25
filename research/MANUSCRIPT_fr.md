@@ -2,7 +2,7 @@
 
 **Adel Kaleche**
 
-*Affiliation à compléter.*
+*Chercheur indépendant, France.*
 
 *Version française ; le manuscrit de référence est en anglais (`MANUSCRIPT.md`).*
 
