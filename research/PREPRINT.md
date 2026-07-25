@@ -15,8 +15,8 @@ Single-author draft.
 
 ## Working title (pick one)
 
-1. **Exact optimum contribution selection in milliseconds: a matrix-free, support-first
-   solver validated against optiSel and AlphaMate on real genomic data**
+1. **Exact optimum contribution selection at genomic scale: a matrix-free, support-first
+   solver validated against optiSel and AlphaMate on real marker panels**
 2. Support-first: exact optimum contribution selection at genomic scale by active-set
    optimisation on a tiny solution support
 3. Orders-of-magnitude faster exact optimum contribution selection by exploiting the

@@ -1,4 +1,4 @@
-# Sélection à contribution optimale exacte en quelques millisecondes : un solveur « support-first », sans matrice, validé contre optiSel et AlphaMate sur données génomiques réelles
+# Sélection à contribution optimale exacte à l'échelle génomique : un solveur « support-first », sans matrice, validé contre optiSel et AlphaMate sur panels de marqueurs réels
 
 **Adel Kaleche**
 

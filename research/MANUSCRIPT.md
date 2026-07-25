@@ -1,4 +1,4 @@
-# Exact optimum contribution selection in milliseconds: a matrix-free, support-first solver validated against optiSel and AlphaMate on real genomic data
+# Exact optimum contribution selection at genomic scale: a matrix-free, support-first solver validated against optiSel and AlphaMate on real marker panels
 
 **Adel Kaleche**
 
