@@ -1,6 +1,6 @@
 Package: ocsrs
 Title: Exact Matrix-Free Optimum Contribution Selection
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
     person("Adel", "Kaleche", email = "kaleche@gmail.com", role = c("aut", "cre"))
 Description: Solves genomic optimum contribution selection exactly: maximise

@@ -26,7 +26,7 @@ import numpy as np
 from . import _ocs_rs as _rs
 
 __all__ = ["solve", "read_plink", "OcsResult", "Panel", "vanraden_scale"]
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 
 @dataclass
