@@ -86,7 +86,7 @@ inside the constraint support-first reaches the boundary, so its small edge is t
 diversity budget they leave unspent rather than a different optimum — the shipped
 matrix-free solver, forming no **G** at all, running 18×–182× faster end to end (and,
 handed **G** as the interior-point tools require it, the active set alone reaches the
-same optimum up to ~2500× faster), and ~37000× faster than a general conic
+same optimum up to ~2500× faster), and ~76000× faster than a general conic
 interior-point solver at n = 10000. Against AlphaMate, a heuristic for the distinct problem of
 discrete mate allocation, the exact optimum is no worse at matched coancestry on
 the continuous relaxation the two share, at a small fraction of the run time. Across synthetic populations the

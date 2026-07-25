@@ -32,7 +32,7 @@ wheat panel (n=599), a PIC pig (n=3534, 52k SNP), and a heterogeneous-stock mous
 boundary — agreeing with a conic interior-point solver to 1e-8, which itself stops just short
 of that boundary — the shipped matrix-free solver, forming no G, running 18×–182× faster
 end to end (and, given G as the interior-point tools require it, the active set alone up to
-~2500× faster) and ~37000× faster than a general conic solver (Clarabel) at n=10000. Against
+~2500× faster) and ~76000× faster than a general conic solver (Clarabel) at n=10000. Against
 AlphaMate — a heuristic for the distinct problem of discrete mate allocation — the exact
 optimum is no worse at matched coancestry on the continuous relaxation the two share, at a
 fraction of the run time; per-candidate contribution caps
@@ -122,7 +122,7 @@ inside the constraint support-first reaches the boundary, so its small edge is t
 diversity budget they leave unspent rather than a different optimum — the shipped
 matrix-free solver, forming no **G** at all, running 18×–182× faster end to end (and,
 handed **G** as the interior-point tools require it, the active set alone reaches the
-same optimum up to ~2500× faster), and ~37000× faster than a general conic
+same optimum up to ~2500× faster), and ~76000× faster than a general conic
 interior-point solver at n = 10000. Against AlphaMate, a heuristic for the distinct problem of
 discrete mate allocation, the exact optimum is no worse at matched coancestry on
 the continuous relaxation the two share, at a small fraction of the run time. Across synthetic populations the
@@ -314,26 +314,46 @@ exact where the interior-point methods are merely close.
 
 ### Speed against a generic conic solver
 
-On synthetic genomic instances support-first is faster than the Clarabel conic
-solver by a factor that grows steeply with n (Table 1): from ~130× at n = 1000 to
-~37000× at n = 10000, where Clarabel takes 26 minutes and support-first 43 ms. The
-scaling is structural — Clarabel factors a dense O(n³) KKT system at every
-interior-point iteration, whereas support-first performs a near-constant number of
-matrix–vector products (3–6 here), each O(n·m).
+This comparison also settles a question the optiSel head-to-head cannot: both
+solvers here are Rust, called in the same process on the same generated data, so no
+language difference can be mistaken for an algorithmic one. On synthetic genomic
+instances support-first is faster than the Clarabel conic solver by a factor that
+grows steeply with n (Table 1): from ~290× at n = 1000 to ~76000× at n = 10000, where
+the conic route takes half an hour and support-first 24 ms. The scaling is
+structural — Clarabel factors a dense O(n³) KKT system at every interior-point
+iteration, whereas support-first performs a near-constant number of matrix–vector
+products (3–6 here), each O(n·m).
 
-**Table 1.** support-first vs Clarabel (synthetic, identical optimum).
+**Table 1.** support-first vs Clarabel, identical optimum (agreeing to 1.2×10⁻⁹–
+4.8×10⁻⁹ in gain), one serial sweep on an idle machine. Both solvers are Rust in one
+process on the same synthetic instance (m = 20000, cap k = 0.6·mean diag **G**), so
+the comparison carries no language confound.
 
-| n | Clarabel | support-first | speed-up |
-|---|---|---|---|
-| 1000 | 1.40 s | 0.011 s | 126× |
-| 2000 | 10.6 s | 0.022 s | 472× |
-| 5000 | 160 s | 0.036 s | 4474× |
-| 10000 | 1579 s | 0.043 s | **37090×** |
+| n | m | Clarabel¹ | support-first | speed-up |
+|---|---|---|---|---|
+| 1000 | 20000 | 1.70 s | 0.006 s | 290× |
+| 2000 | 20000 | 12.66 s | 0.012 s | 1093× |
+| 5000 | 20000 | 182.9 s | 0.018 s | 9917× |
+| 10000 | 20000 | 1792 s | 0.024 s | **76179×** |
+
+¹ the whole conic route: forming **G** (7.0 s at n = 10000), its Cholesky, cone
+assembly and the interior-point solve. The solve alone is 1.60 / 12.31 / 180.9 /
+1784.2 s, i.e. 274×–75831×. support-first's column is its entire run, since it builds
+nothing.
+
+Two honest qualifications. The support-first timings are deterministic at this
+precision (three runs at n = 1000 and at n = 2000 reproduced 0.006 s and 0.012 s to
+the millisecond) while Clarabel varies a few percent; the large-n cells are single
+runs, as Clarabel needs half an hour at n = 10000. And the cap here is loose, so the
+optimal support is 2–5 — the easy end of the spectrum, which is why so few kinship
+products suffice. The tight-cap regime, where the support runs to 59–168, is the
+synthetic half of Table 2, and the factor shrinks there accordingly; we report both
+rather than only the favourable one.
 
 ### Speed against the domain tool optiSel
 
-A generic solver is a soft target; the informative comparison is against optiSel,
-the standard exact OCS tool, on its own formulation. After extending support-first
+Table 1 isolates the algorithm; what matters to a breeder is the comparison against
+optiSel, the standard exact OCS tool, on its own formulation. After extending support-first
 to the two sex-equality constraints, it returns the same optimum as optiSel. The
 shipped matrix-free solver — forming no `G` at all — runs **18×–182×** faster across
 real and synthetic panels (Table 2), the factor widening with n as optiSel's

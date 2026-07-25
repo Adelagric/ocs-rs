@@ -103,12 +103,16 @@ triggered it (400/400 `Solved`).
 same data, same machine, both in Rust; gain agrees to ~1e-9 and the active
 support is identical at every size):
 
-| n | Clarabel solve | support-first solve | **speedup** |
-|---|---|---|---|
-| 1000 | 1.40 s | 0.011 s | 126× |
-| 2000 | 10.6 s | 0.022 s | 472× |
-| 5000 | 160 s | 0.036 s | 4474× |
-| 10000 | 1579 s | 0.043 s | **37090×** |
+Rust vs Rust, one process, one serial sweep on an idle M4 Max (m = 20000, k_frac 0.6);
+provenance in `research/repro/table1_numbers.md`. "Clarabel total" is the whole conic
+route (build G + Cholesky + cone assembly + solve); support-first builds nothing.
+
+| n | Clarabel solve | Clarabel total | support-first | **speedup (total)** |
+|---|---|---|---|---|
+| 1000 | 1.60 s | 1.70 s | 0.006 s | 290× |
+| 2000 | 12.31 s | 12.66 s | 0.012 s | 1093× |
+| 5000 | 180.9 s | 182.9 s | 0.018 s | 9917× |
+| 10000 | 1784.2 s | 1792 s | 0.024 s | **76179×** |
 
 The speedup grows steeply (Clarabel is O(n³) per iteration, support-first is
 roughly constant in products: 3–6). **Caveat — this is vs Clarabel, a *generic*

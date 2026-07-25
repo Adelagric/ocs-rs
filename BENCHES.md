@@ -187,6 +187,36 @@ The `G·c` product itself was only ~8% of a mouse solve, not the bottleneck the 
 assumed; exploiting the sparsity of `c` there still gives 1.5×–1.8× on the product
 (`examples/bench_matvec`), kept because it is free, but it is not where the time was.
 
+### Update — Table 1 re-measured (Clarabel), the language-confound-free comparison
+
+The Clarabel head-to-head had never been re-run after the incremental-Gram work, and
+carried no stated provenance, so it sat awkwardly beside a Table 2 that is now
+medians with a provenance file. Re-run as one serial sweep on the idle machine
+(`compare --n N`, m = 20000, k_frac 0.6, seed 20240617). Both solvers are Rust in the
+same process on the same data — this is the comparison that carries **no language
+confound**, and it is the honest answer to "you timed Rust against R".
+
+| n | Clarabel solve | Clarabel total¹ | support-first | speed-up (total) | support |
+|---|---|---|---|---|---|
+| 1000 | 1.602 s | 1.697 s | 0.006 s | 290× | 4 |
+| 2000 | 12.308 s | 12.655 s | 0.012 s | 1093× | 5 |
+| 5000 | 180.933 s | 182.912 s | 0.018 s | 9917× | 4 |
+| 10000 | 1784.170 s | 1792.344 s | 0.024 s | **76179×** | 2 |
+
+¹ forming `G` (7.0 s at n=10000) + Cholesky + cone assembly + solve. Gains agree to
+1.2e-9–4.8e-9 on every row.
+
+This **supersedes the earlier Table 1** (126×–37090×): support-first is now about
+twice as fast, so the old table understated it. Stability: support-first is
+deterministic at this precision (three runs each at n=1000 and n=2000 reproduced
+0.006 s and 0.012 s to the millisecond); Clarabel varies a few percent (1.602/1.655/
+1.680 s at n=1000). Large-n cells are single runs — Clarabel needs ~30 min at
+n=10000.
+
+Caveat carried into the paper: this sweep uses a **loose** cap (k_frac 0.6), so the
+support is 2–5 — the easy end. Table 2's synthetic rows are the tight-cap end
+(support 59–168) and the factor shrinks there. Both are reported.
+
 ### Update — pig measured, and the R binding made zero-copy
 
 The PIC pig panel (n=3534, **52 843 SNP**) was found locally and measured. It exposed

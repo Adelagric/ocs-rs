@@ -31,8 +31,9 @@ mouse n=1814 with real sex):
   Handed `G` precomputed — as the interior-point tools require it — the active set
   alone reaches the same optimum up to **~2500×** faster (the algorithmic advantage;
   see the two-column [`Table 2`](research/repro/table2_numbers.md)).
-- **vs Clarabel** (a generic conic solver): up to **37090×** at n=10000
-  (26 minutes → 43 ms).
+- **vs Clarabel** (a generic conic solver): up to **76179×** at n=10000
+  (30 minutes → 24 ms). Rust against Rust in one process, so no language confound —
+  see [`Table 1`](research/repro/table1_numbers.md).
 - **vs AlphaMate** (a heuristic for the *distinct* discrete-mating problem): on the
   continuous relaxation the two share, scored at matched coancestry, the exact
   optimum is no worse — a consistency check, not a head-to-head — at a small
