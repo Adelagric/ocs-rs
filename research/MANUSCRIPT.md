@@ -28,8 +28,9 @@ n×n G (the order-of-magnitude speed is the tiny active set, not the matrix-free
 wheat panel (n=599), a PIC pig (n=3534, 52k SNP), and a heterogeneous-stock mouse panel
 (n=1814, with real sex) — support-first returns the exact optimum on the kinship
 boundary — agreeing with a conic interior-point solver to 1e-8, which itself stops just short
-of that boundary — while running 90×–2280× faster (0.008 s vs 6.96 s on the sexed mouse
-instance) and ~37000× faster than a general conic solver (Clarabel) at n=10000. Against
+of that boundary — the shipped matrix-free solver, forming no G, running 18×–193× faster
+end to end (and, given G as the interior-point tools require it, the active set alone up to
+2445× faster) and ~37000× faster than a general conic solver (Clarabel) at n=10000. Against
 AlphaMate — a heuristic for the distinct problem of discrete mate allocation — the exact
 optimum is no worse at matched coancestry on the continuous relaxation the two share, at a
 fraction of the run time; per-candidate contribution caps
@@ -116,9 +117,11 @@ heterogeneous-stock mouse panel (n = 1814, with real sex) — support-first reac
 the exact optimum, agreeing with the conic optimum to 1e-8; at matched realised
 coancestry it agrees with the interior-point methods, and where they halt just
 inside the constraint support-first reaches the boundary, so its small edge is the
-diversity budget they leave unspent rather than a different optimum — all while
-running 90×–2280× faster, and ~37000× faster than a general conic interior-point
-solver at n = 10000. Against AlphaMate, a heuristic for the distinct problem of
+diversity budget they leave unspent rather than a different optimum — the shipped
+matrix-free solver, forming no **G** at all, running 18×–193× faster end to end (and,
+handed **G** as the interior-point tools require it, the active set alone reaches the
+same optimum up to 2445× faster), and ~37000× faster than a general conic
+interior-point solver at n = 10000. Against AlphaMate, a heuristic for the distinct problem of
 discrete mate allocation, the exact optimum is no worse at matched coancestry on
 the continuous relaxation the two share, at a small fraction of the run time. Across synthetic populations the
 optimal support stays 14–19 as n grows from
@@ -326,28 +329,46 @@ matrix–vector products (3–6 here), each O(n·m).
 
 A generic solver is a soft target; the informative comparison is against optiSel,
 the standard exact OCS tool, on its own formulation. After extending support-first
-to the two sex-equality constraints, it returns the same optimum as optiSel while
-running 90–2280× faster on three real marker panels (Table 2), and 22–97× faster
-on structured synthetic populations. The largest margin is on the PIC pig panel
-(n = 3534), where optiSel takes 55 s and support-first 24 ms.
+to the two sex-equality constraints, it returns the same optimum as optiSel. The
+shipped matrix-free solver — forming no `G` at all — runs **18×–193×** faster across
+real and synthetic panels (Table 2), the factor widening with n as optiSel's
+interior-point cost climbs. Given `G` precomputed, as the interior-point tools
+require, the active set alone reaches the same optimum **58×–2445×** faster: that is
+the algorithmic advantage this section dissects, and the matrix-free solver keeps
+most of it while never building the matrix at all.
 
-**Table 2.** support-first vs optiSel (R/`cccp`), same optimum throughout.
+**Table 2.** support-first vs optiSel, same optimum throughout, one R session on one
+instance (Apple M4 Max). Two support-first columns: the active set given a dense `G`
+(the regime optiSel runs in), and the shipped matrix-free solver, which forms no `G`,
+timed end to end from genotypes including the R-binding copy.
 
-| dataset | n | support-first | optiSel | speed-up |
-|---|---|---|---|---|
-| synthetic (structured) | 1000 | 0.09 s | 2.0 s | 22× |
-| synthetic (structured) | 2000 | 0.29 s | 11.9 s | 41× |
-| synthetic (structured) | 5000 | 1.47 s | 143 s | 97× |
-| CIMMYT wheat (real GRM) | 599 | 0.007 s | 0.63 s | 90× |
-| PIC pig (real GRM, 52k SNP) | 3534 | 0.024 s | 54.8 s | **2280×** |
-| HS mouse (real GRM, real sex) | 1814 | 0.008 s | 6.96 s | 870× |
+| dataset | n | m | algorithm¹ | matrix-free² | optiSel | speed-up³ |
+|---|---|---|---|---|---|---|
+| synthetic (structured) | 1000 | 500 | 0.025 s | 0.120 s | 2.11 s | 18× |
+| synthetic (structured) | 2000 | 500 | 0.105 s | 0.282 s | 13.56 s | 48× |
+| synthetic (structured) | 5000 | 500 | 0.504 s | 0.901 s | 173.8 s | 193× |
+| CIMMYT wheat (real GRM) | 599 | 1279 | 0.011 s | 0.009 s | 0.634 s | 70× |
+| PIC pig (real GRM, 52k SNP) | 3534 | 52843 | 0.022 s | 0.611 s | 53.8 s | 88× |
+| HS mouse (real GRM, real sex) | 1814 | 10346 | 0.009 s | 0.057 s | 6.94 s | 122× |
 
-The mouse row is the true sexed OCS, on a genuine recorded sex (934 males, 880
-females). Caveats carried to the Discussion: the support-first timings are the
-NumPy prototype and optiSel is R, so the factor reflects the algorithm (the active
-set on a tiny support) rather than the language; sex is real only for the mouse
-panel; and the selection criterion is a recorded phenotype or EBV used as a proxy
-for a genomic breeding value.
+¹ active set given a precomputed dense `G`, solve only — the regime optiSel runs in
+(NumPy prototype); ² matrix-free, forming no `G`, end to end including the R-binding
+genotype copy (shipped Rust); ³ optiSel / matrix-free.
+
+The speed-up column is the shipped solver, which forms nothing, against optiSel:
+18×–193×. The algorithm column — the active set handed `G` as the interior-point
+tools are — reaches the same optimum 58×–2445× faster than optiSel (the pig's 2445×
+the largest, and the origin of this work's earlier figure), but that column pays the
+`O(n²m)` to build and `O(n²)` to store `G` that the matrix-free solver never does. On
+the pig the shipped 0.611 s is mostly the R binding copying the 1.5 GB genotype
+matrix — the solve is ~0.34 s — so at m = 52 843 that copy, not the solve, sets the
+end-to-end number. Wheat shows the reverse: matrix-free (0.009 s) beats the dense-`G`
+prototype (0.011 s), because at small m the products are cheaper than indexing a
+dense `G`. Both columns return the same optimum on every row, reaching the boundary
+optiSel stops just inside. The mouse row is the true sexed OCS, on a genuine recorded
+sex (934 males, 880 females). Caveats to the Discussion: sex is real only for the
+mouse panel; and the selection criterion is a recorded phenotype or EBV used as a
+proxy for a genomic breeding value.
 
 ### Comparison with the heuristic AlphaMate
 
@@ -416,10 +437,12 @@ fixed cap, growing as the cap tightens — is taken up in the Discussion.
 
 Support-first makes exact optimum contribution selection cheap at genomic scale.
 On the panels tested it reaches the same optimum as the domain's exact tool while
-running two to three orders of magnitude faster, and it stays cheap precisely
-where the dense relationship matrix that every other solver forms becomes
-infeasible — the large-candidate regime that motivates genomic OCS in the first
-place. Because the method is exact and deterministic — a Karush–Kuhn–Tucker–
+running one to two orders of magnitude faster end to end, forming no relationship
+matrix at all — and, handed that matrix as the interior-point tools require it, its
+active set alone reaches the same optimum up to three orders of magnitude faster. It
+stays cheap precisely where the dense relationship matrix that every other solver
+forms becomes infeasible — the large-candidate regime that motivates genomic OCS in
+the first place. Because the method is exact and deterministic — a Karush–Kuhn–Tucker–
 certified active set rather than a stochastic search — its output is reproducible
 to the last digit, unlike the heuristic mate-selection tools it is measured
 against.
@@ -441,14 +464,19 @@ true genomic breeding value; the speed and exactness results are unaffected, but
 the contribution vectors themselves are illustrative, not breeding
 recommendations. Second, a genuine recorded sex is available only for the mouse
 panel; elsewhere we impose an arbitrary balanced split, so only the mouse result
-exercises the true sexed constraints on real data. Third, the head-to-head
-timings compare a NumPy prototype against R/optiSel: the order-of-magnitude gap is
-algorithmic — both realise the same active set — but a single-language comparison
-would place it beyond doubt, and our own measurements are explicit that the
-matrix-free product is *not* an inner-loop speed-up when markers outnumber
-candidates (m > n), where streaming the genotype matrix costs more than a resident
-dense product. The matrix-free route is the memory and large-n enabler; the speed
-advantage over the conic solvers is the small active set. Fourth, the
+exercises the true sexed constraints on real data. Third, Table 2 separates two things the speed claim used to conflate. The shipped
+matrix-free solver, timed end to end against optiSel including the genotype copy
+across the R binding, is 18×–193× faster; the active set given a dense `G` — the
+regime optiSel runs in, but forming and storing the `O(n²)` matrix — reaches the same
+optimum 58×–2445× faster, and it is this algorithmic figure the pig's 2445×
+represents. The two coincide in mechanism (the same tiny active set) and differ only
+in whether `G` is materialised, which is precisely the cost the matrix-free route
+avoids. That route is *not* an inner-loop speed-up when markers outnumber candidates
+(m > n): on the pig its end-to-end cost is dominated by streaming and copying the
+52k-marker matrix, and its 88× understates the algorithm — a true zero-copy binding,
+of the kind the Python path uses, would lift it. The matrix-free route is the memory
+and large-n enabler; the speed advantage over the conic solvers is the small active
+set. Fourth, the
 boundedness of the optimal support is, in this paper, an empirical observation
 across a synthetic sweep and the real panels, not yet a theorem, and the
 route is subtler than a constraint count. With no ridge (ε = 0, G = ZZᵀ/s of rank

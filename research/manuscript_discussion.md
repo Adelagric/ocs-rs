@@ -5,10 +5,12 @@
 
 Support-first makes exact optimum contribution selection cheap at genomic scale.
 On the panels tested it reaches the same optimum as the domain's exact tool while
-running two to three orders of magnitude faster, and it stays cheap precisely
-where the dense relationship matrix that every other solver forms becomes
-infeasible — the large-candidate regime that motivates genomic OCS in the first
-place. Because the method is exact and deterministic — a Karush–Kuhn–Tucker–
+running one to two orders of magnitude faster end to end, forming no relationship
+matrix at all — and, handed that matrix as the interior-point tools require it, its
+active set alone reaches the same optimum up to three orders of magnitude faster. It
+stays cheap precisely where the dense relationship matrix that every other solver
+forms becomes infeasible — the large-candidate regime that motivates genomic OCS in
+the first place. Because the method is exact and deterministic — a Karush–Kuhn–Tucker–
 certified active set rather than a stochastic search — its output is reproducible
 to the last digit, unlike the heuristic mate-selection tools it is measured
 against.
@@ -30,14 +32,19 @@ true genomic breeding value; the speed and exactness results are unaffected, but
 the contribution vectors themselves are illustrative, not breeding
 recommendations. Second, a genuine recorded sex is available only for the mouse
 panel; elsewhere we impose an arbitrary balanced split, so only the mouse result
-exercises the true sexed constraints on real data. Third, the head-to-head
-timings compare a NumPy prototype against R/optiSel: the order-of-magnitude gap is
-algorithmic — both realise the same active set — but a single-language comparison
-would place it beyond doubt, and our own measurements are explicit that the
-matrix-free product is *not* an inner-loop speed-up when markers outnumber
-candidates (m > n), where streaming the genotype matrix costs more than a resident
-dense product. The matrix-free route is the memory and large-n enabler; the speed
-advantage over the conic solvers is the small active set. Fourth, the
+exercises the true sexed constraints on real data. Third, Table 2 separates two things the speed claim used to conflate. The shipped
+matrix-free solver, timed end to end against optiSel including the genotype copy
+across the R binding, is 18×–193× faster; the active set given a dense `G` — the
+regime optiSel runs in, but forming and storing the `O(n²)` matrix — reaches the same
+optimum 58×–2445× faster, and it is this algorithmic figure the pig's 2445×
+represents. The two coincide in mechanism (the same tiny active set) and differ only
+in whether `G` is materialised, which is precisely the cost the matrix-free route
+avoids. That route is *not* an inner-loop speed-up when markers outnumber candidates
+(m > n): on the pig its end-to-end cost is dominated by streaming and copying the
+52k-marker matrix, and its 88× understates the algorithm — a true zero-copy binding,
+of the kind the Python path uses, would lift it. The matrix-free route is the memory
+and large-n enabler; the speed advantage over the conic solvers is the small active
+set. Fourth, the
 boundedness of the optimal support is, in this paper, an empirical observation
 across a synthetic sweep and the real panels, not yet a theorem, and the
 route is subtler than a constraint count. With no ridge (ε = 0, G = ZZᵀ/s of rank

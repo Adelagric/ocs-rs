@@ -83,9 +83,11 @@ heterogeneous-stock mouse panel (n = 1814, with real sex) — support-first reac
 the exact optimum, agreeing with the conic optimum to 1e-8; at matched realised
 coancestry it agrees with the interior-point methods, and where they halt just
 inside the constraint support-first reaches the boundary, so its small edge is the
-diversity budget they leave unspent rather than a different optimum — all while
-running 90×–2280× faster, and ~37000× faster than a general conic interior-point
-solver at n = 10000. Against AlphaMate, a heuristic for the distinct problem of
+diversity budget they leave unspent rather than a different optimum — the shipped
+matrix-free solver, forming no **G** at all, running 18×–193× faster end to end (and,
+handed **G** as the interior-point tools require it, the active set alone reaches the
+same optimum up to 2445× faster), and ~37000× faster than a general conic
+interior-point solver at n = 10000. Against AlphaMate, a heuristic for the distinct problem of
 discrete mate allocation, the exact optimum is no worse at matched coancestry on
 the continuous relaxation the two share, at a small fraction of the run time. Across synthetic populations the
 optimal support stays 14–19 as n grows from
