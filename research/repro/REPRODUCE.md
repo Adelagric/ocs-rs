@@ -46,10 +46,13 @@ benchmarks read those by `n`.
   - Obtain `FileS1.zip` from the article's **Supporting Information** (G3 / GSA
     figshare): <https://doi.org/10.1534/g3.111.001453> → *Supporting Information*.
   - `FileS1.zip` contains `genotypes.txt` (3534 individuals × 52,843 SNP),
-    `ebvs.txt` (EBVs; trait 3 is used as **b**), and `phenotypes.txt`.
+    `ebvs.txt` (EBVs; trait 3 is used as **b**), `phenotypes.txt`, and `pedigree.txt`.
   - Unzip so the files sit at **`/tmp/pig/FileS1/`** (i.e. `/tmp/pig/FileS1/genotypes.txt`),
-    matching `pig_export.R`. The PIC panel ships no usable sex (sex chromosomes
-    removed), so an arbitrary balanced split is used.
+    matching `pig_export.R`. The sex chromosomes are removed from the genotypes, so the
+    full-panel run uses an arbitrary balanced split — but `pedigree.txt` recovers a
+    *real* sex for 1194 of the 3534 animals (sire ⇒ male, dam ⇒ female), which is the
+    sexed sub-panel of `r_binding_pig_sexed.R`. Keep that file: without it the sexed
+    sub-panel and its GEBV variant (`r_binding_pig_gebv.R`) are skipped.
 
 ## Run it
 

@@ -132,6 +132,15 @@ phenotype rather than a breeding value, and in no panel is it a *genomic* breedi
 value; and the sexed pig sub-panel, being the animals that became parents, is a
 post-selection subset.
 
+One further check bears on the criterion itself rather than the solver. Repeating the
+sexed sub-panel with a genuine GEBV — a GBLUP fitted on the panel's own phenotypes
+and its own relationship matrix, correlating 0.64 with the evaluation's EBV — changes
+nothing material: support-first reaches gain 0.836775 against optiSel's 0.836057,
+again on the constraint boundary optiSel stops just inside (100% against 99.54% of
+the cap), with a support of 28, the sex budget split exactly, in 0.233 s against
+2.850 s (12×). The behaviour reported here is therefore not an artefact of which
+breeding value is used as the criterion.
+
 ## Comparison with the heuristic AlphaMate
 
 AlphaMate optimises a related but distinct problem — discrete mate allocation by a

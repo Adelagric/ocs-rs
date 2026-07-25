@@ -78,6 +78,11 @@ if have Rscript && rok BGLR && rok optiSel && rok ocsrs; then
   # that cap, which step 6 needs for this row's algorithm column.
   if [ -f /tmp/pig/FileS1/pedigree.txt ]; then
     Rscript research/repro/r_binding_pig_sexed.R 5 || echo "  sexed pig sub-panel failed"
+    # Same sub-panel with a genuine GEBV (GBLUP on the panel's own phenotypes)
+    # instead of the shipped EBV — the criterion-robustness check.
+    if rok BGLR; then
+      Rscript research/repro/r_binding_pig_gebv.R 5 || echo "  GEBV variant failed"
+    fi
   else
     echo "  SKIP sexed pig sub-panel: /tmp/pig/FileS1/pedigree.txt absent"
   fi

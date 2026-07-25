@@ -293,6 +293,15 @@ subset rather than a random sample of selection candidates — a property of the
 recovery, not a choice, and one that bears on the interpretation of the contribution
 vector rather than on what the benchmark measures.
 
+Because the values that panel ships come from the breeding programme's own evaluation
+and are not genomic predictions, the sub-panel is also run with a criterion computed
+the way genomic selection computes it: a GBLUP fitted by `BGLR` on the panel's own
+trait-3 phenotypes (3141 of the 3534 animals) against its own genomic relationship
+matrix, with the criterion read back as the posterior mean of the genetic effect. The
+fitted genomic heritability is 0.247, and 119 of the 1194 sub-panel animals carry no
+phenotype of their own, so their value comes entirely from genomic relationships —
+the case genomic selection exists for.
+
 Baselines are optiSel (R, the `cccp` Nesterov–Todd interior-point solver; the exact
 domain reference), Clarabel (the conic cross-check), and AlphaMate (Fortran
 differential evolution; run from its Linux binary under emulation, as no macOS build
@@ -437,6 +446,15 @@ phenotype rather than a breeding value, and in no panel is it a *genomic* breedi
 value; and the sexed pig sub-panel, being the animals that became parents, is a
 post-selection subset.
 
+One further check bears on the criterion itself rather than the solver. Repeating the
+sexed sub-panel with a genuine GEBV — a GBLUP fitted on the panel's own phenotypes
+and its own relationship matrix, correlating 0.64 with the evaluation's EBV — changes
+nothing material: support-first reaches gain 0.836775 against optiSel's 0.836057,
+again on the constraint boundary optiSel stops just inside (100% against 99.54% of
+the cap), with a support of 28, the sex budget split exactly, in 0.233 s against
+2.850 s (12×). The behaviour reported here is therefore not an artefact of which
+breeding value is used as the criterion.
+
 ### Comparison with the heuristic AlphaMate
 
 AlphaMate optimises a related but distinct problem — discrete mate allocation by a
@@ -527,9 +545,12 @@ solver nor the full-population dense solves of the standard tools.
 
 Several limitations bound these results, and we state them plainly. First, the
 selection criterion is a real estimated breeding value on the pig panels and a
-recorded phenotype standing in for one on wheat and mouse; in no panel is it a
-*genomic* breeding value, so the speed and exactness results are unaffected but the
-contribution vectors themselves are illustrative, not breeding recommendations.
+recorded phenotype standing in for one on wheat and mouse. On the sexed pig sub-panel
+we additionally ran a genuine GEBV, fitted by GBLUP on that panel's own phenotypes
+and relationship matrix, and the result was unchanged, so the conclusions do not turn
+on which breeding value serves as the criterion; on wheat and mouse, however, the
+criterion remains a phenotype, and the contribution vectors are in every case
+illustrative rather than breeding recommendations.
 Second, a genuine recorded sex is available for the mouse panel and for the sexed pig
 sub-panel — the single instance combining a real breeding value with a real sex,
 which is therefore the closest thing here to an operational OCS problem — while wheat

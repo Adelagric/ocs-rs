@@ -28,9 +28,12 @@ solver nor the full-population dense solves of the standard tools.
 
 Several limitations bound these results, and we state them plainly. First, the
 selection criterion is a real estimated breeding value on the pig panels and a
-recorded phenotype standing in for one on wheat and mouse; in no panel is it a
-*genomic* breeding value, so the speed and exactness results are unaffected but the
-contribution vectors themselves are illustrative, not breeding recommendations.
+recorded phenotype standing in for one on wheat and mouse. On the sexed pig sub-panel
+we additionally ran a genuine GEBV, fitted by GBLUP on that panel's own phenotypes
+and relationship matrix, and the result was unchanged, so the conclusions do not turn
+on which breeding value serves as the criterion; on wheat and mouse, however, the
+criterion remains a phenotype, and the contribution vectors are in every case
+illustrative rather than breeding recommendations.
 Second, a genuine recorded sex is available for the mouse panel and for the sexed pig
 sub-panel — the single instance combining a real breeding value with a real sex,
 which is therefore the closest thing here to an operational OCS problem — while wheat

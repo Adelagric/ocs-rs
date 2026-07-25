@@ -155,6 +155,15 @@ subset rather than a random sample of selection candidates — a property of the
 recovery, not a choice, and one that bears on the interpretation of the contribution
 vector rather than on what the benchmark measures.
 
+Because the values that panel ships come from the breeding programme's own evaluation
+and are not genomic predictions, the sub-panel is also run with a criterion computed
+the way genomic selection computes it: a GBLUP fitted by `BGLR` on the panel's own
+trait-3 phenotypes (3141 of the 3534 animals) against its own genomic relationship
+matrix, with the criterion read back as the posterior mean of the genetic effect. The
+fitted genomic heritability is 0.247, and 119 of the 1194 sub-panel animals carry no
+phenotype of their own, so their value comes entirely from genomic relationships —
+the case genomic selection exists for.
+
 Baselines are optiSel (R, the `cccp` Nesterov–Todd interior-point solver; the exact
 domain reference), Clarabel (the conic cross-check), and AlphaMate (Fortran
 differential evolution; run from its Linux binary under emulation, as no macOS build
