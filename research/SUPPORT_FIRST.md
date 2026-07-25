@@ -168,7 +168,7 @@ The **mouse row is the *true* sexed OCS** — a genuine recorded sex (BGLR `mice
 GENDER complete, 0 missing), not an arbitrary partition. Caveats kept explicit: the
 **algorithm** column is a NumPy prototype given `G` (the same regime as optiSel) and
 is what the earlier ~2280× measured; the **matrix-free** column is the shipped Rust
-solver end to end and is the honest headline (13×–182×). The synthetic / wheat / pig
+solver end to end and is the honest headline (12×–180×). The synthetic / wheat / pig
 rows use an **arbitrary 2-group sex partition** (wheat is autogamous; PIC ships no
 usable sex — chromosomes removed, only 390/3534 identifiable sires) so those benchmark
 the *solvers* on a real GRM rather than the true sexed OCS; `b` is a real phenotype/EBV
@@ -198,7 +198,7 @@ governed by `|S|` rather than `n³`.
 1. **Exactness & wall-clock — cleared.** Head-to-head vs Clarabel (pool-unique,
    identical data, n=5000: Δgain 1.9e-9, same support) and vs optiSel (sex
    constraint, real wheat and pig GRMs): same optimum every time. Shipped
-   matrix-free 13×–182× end to end; given `G`, the active set alone ~90×–2500×.
+   matrix-free 12×–180× end to end; given `G`, the active set alone ~90×–2500×.
    Not extrapolation.
 2. **True sexed OCS — cleared.** HS mice (BGLR `mice`, real GENDER 934♂/880♀,
    1814 individuals, real 10k-SNP GRM): support-first matches optiSel's optimum

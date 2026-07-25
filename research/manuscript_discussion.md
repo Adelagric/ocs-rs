@@ -42,7 +42,7 @@ own restriction: sex is recoverable from the pedigree precisely for the animals 
 became parents, so it is a post-selection subset of the candidates rather than a
 random sample of them. Third, Table 2 separates two things the speed claim used to conflate. The shipped
 matrix-free solver, timed end to end against optiSel including the genotype copy
-across the R binding, is 13×–182× faster; the active set given a dense `G` — the
+across the R binding, is 12×–180× faster; the active set given a dense `G` — the
 regime optiSel runs in, but forming and storing the `O(n²)` matrix — reaches the same
 optimum ~90×–2500× faster, and it is this algorithmic figure the pig's ~2500×
 represents. The two coincide in mechanism (the same tiny active set) and differ only

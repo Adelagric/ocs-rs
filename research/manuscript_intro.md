@@ -86,7 +86,7 @@ they halt just inside the constraint it reaches the boundary, so its small edge 
 is the diversity budget they leave unspent, not a different optimum.
 
 It is also fast. The shipped matrix-free solver, which forms no **G** at all, runs
-13×–182× faster end to end than optiSel; handed **G** as the interior-point tools
+12×–180× faster end to end than optiSel; handed **G** as the interior-point tools
 require it, the active set alone reaches the same optimum up to ~2500× faster. Against
 a general conic solver at n = 10000 the factor is ~76000×, in a comparison that is
 Rust against Rust in one process and so carries no language confound. Against

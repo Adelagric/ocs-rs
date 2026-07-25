@@ -27,7 +27,7 @@ mouse n=1814 with real sex):
   as accurate as the domain tool, exact where it is merely close. Cross-language
   agreement with a NumPy reference: `1.5e-14`.
 - **vs optiSel** (the standard exact tool): the shipped matrix-free solver, forming
-  no `G`, is **13×–182×** faster end to end, same optimum (mouse: 0.057 s vs 6.9 s).
+  no `G`, is **12×–180×** faster end to end, same optimum (mouse: 0.057 s vs 6.9 s).
   Handed `G` precomputed — as the interior-point tools require it — the active set
   alone reaches the same optimum up to **~2500×** faster (the algorithmic advantage;
   see the two-column [`Table 2`](research/repro/table2_numbers.md)).
