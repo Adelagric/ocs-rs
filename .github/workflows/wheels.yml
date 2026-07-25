@@ -68,19 +68,22 @@ jobs:
 
   publish:
     name: publish to PyPI
-    # Only on a version tag. Requires the repository secret PYPI_API_TOKEN.
+    # Only on a version tag. Authentication is PyPI Trusted Publishing (OIDC): the
+    # job exchanges a short-lived GitHub identity token for a publishing token, so
+    # there is no API token to store, rotate or leak. PyPI must have a trusted
+    # publisher registered for this repository, workflow file and environment.
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [build, sdist]
     runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # mandatory for trusted publishing
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
-      - name: Upload to PyPI
-        uses: PyO3/maturin-action@v1
-        env:
-          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          command: upload
-          args: --non-interactive --skip-existing dist/*
+          skip-existing: true

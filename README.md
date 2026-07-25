@@ -140,8 +140,9 @@ independent optimiser (SciPy SLSQP), not just against the Rust solver.
 
 [`.github/workflows/wheels.yml`](.github/workflows/wheels.yml) builds wheels for
 Linux (x86_64, aarch64), macOS (Intel, Apple silicon) and Windows plus an sdist, and
-uploads them on a `v*` tag. Until such a tag is pushed with a `PYPI_API_TOKEN` secret
-in place, `pip install ocs-rs` does not resolve — build from source as above.
+publishes them on a `v*` tag through PyPI Trusted Publishing — an OIDC exchange, so no
+API token is stored in the repository. Until the first tag is pushed,
+`pip install ocs-rs` does not resolve; build from source as above.
 
 ## R
 
