@@ -28,6 +28,22 @@ and support on every row (verified), so the comparison is like-for-like.
 | CIMMYT wheat | 599 | 1279 | 24 | 0.003 s | 0.008 s | 0.595 s | 198× | 74× |
 | PIC pig | 3534 | 52843 | 28 | 0.020 s | 0.622 s | 49.9 s | ~2500× | 80× |
 | HS mouse (real sex) | 1814 | 10346 | 19 | 0.008 s | 0.057 s | 6.93 s | 866× | 122× |
+| PIC pig, sexed sub-panel¹ | 1194 | 52843 | 27 | 0.004 s | 0.227 s | 2.85 s | 712× | 13× |
+
+¹ The only instance with a real breeding value **and** a real sex. Sex is derived from
+the pedigree the PIC download ships (sire ⇒ male, dam ⇒ female), which resolves 1194
+of the 3534 genotyped animals — 390 sires, 804 dams, none appearing as both — and all
+1194 carry a real EBV from the accompanying evaluation (mean accuracy 0.811 on trait
+3). Allele frequencies and `G` are recomputed on the retained animals. Caveat: these
+are exactly the animals that became parents, hence a post-selection subset rather
+than a random sample of candidates. optiSel's timing here varied more than elsewhere
+between invocations (medians 2.669 s and 3.163 s on two independent runs, tight
+within each: [2.635, 2.704] and [2.988, 3.204]); the table reports the pooled median
+of all six samples, 2.85 s, which is the conservative choice for the speed-up. The
+matrix-free/algorithm ratio is the largest in the table (57×) because m/n ≈ 44 here —
+the regime the paper states matrix-free is *not* an inner-loop speed-up in.
+Solved by both columns to the same optimum: gain 1.844614, support 27, sex split
+exact, on the constraint boundary where optiSel stops at 99.53% of it.
 
 Spread (5× ocsrs / 5× algo / 3× optiSel), the widest per cell:
 - ocsrs: sub-% everywhere except pig [0.603, 0.744] (the 1.5 GB copy jitters).
@@ -35,7 +51,7 @@ Spread (5× ocsrs / 5× algo / 3× optiSel), the widest per cell:
 - optiSel: <1% on all cells including the slow ones (n=5000 [163.6, 164.2], pig
   [49.8, 50.3]).
 
-Headline ranges: shipped × optiSel **18×–182×**; algorithm × optiSel **~90×–2500×**.
+Headline ranges: shipped × optiSel **13×–182×**; algorithm × optiSel **~90×–2500×**.
 
 Notes:
 - optiSel reproduces the manuscript's own numbers (wheat 0.60, mouse 6.93, pig ~50),

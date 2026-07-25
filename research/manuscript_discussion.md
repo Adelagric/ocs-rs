@@ -27,14 +27,19 @@ prior work, this is neither the pedigree-matrix sparsity of an interior-point OC
 solver nor the full-population dense solves of the standard tools.
 
 Several limitations bound these results, and we state them plainly. First, the
-public panels carry a recorded phenotype or EBV that we use as a stand-in for a
-true genomic breeding value; the speed and exactness results are unaffected, but
-the contribution vectors themselves are illustrative, not breeding
-recommendations. Second, a genuine recorded sex is available only for the mouse
-panel; elsewhere we impose an arbitrary balanced split, so only the mouse result
-exercises the true sexed constraints on real data. Third, Table 2 separates two things the speed claim used to conflate. The shipped
+selection criterion is a real estimated breeding value on the pig panels and a
+recorded phenotype standing in for one on wheat and mouse; in no panel is it a
+*genomic* breeding value, so the speed and exactness results are unaffected but the
+contribution vectors themselves are illustrative, not breeding recommendations.
+Second, a genuine recorded sex is available for the mouse panel and for the sexed pig
+sub-panel — the single instance combining a real breeding value with a real sex,
+which is therefore the closest thing here to an operational OCS problem — while wheat
+and the full pig panel take an arbitrary balanced split. That sub-panel carries its
+own restriction: sex is recoverable from the pedigree precisely for the animals that
+became parents, so it is a post-selection subset of the candidates rather than a
+random sample of them. Third, Table 2 separates two things the speed claim used to conflate. The shipped
 matrix-free solver, timed end to end against optiSel including the genotype copy
-across the R binding, is 18×–182× faster; the active set given a dense `G` — the
+across the R binding, is 13×–182× faster; the active set given a dense `G` — the
 regime optiSel runs in, but forming and storing the `O(n²)` matrix — reaches the same
 optimum ~90×–2500× faster, and it is this algorithmic figure the pig's ~2500×
 represents. The two coincide in mechanism (the same tiny active set) and differ only

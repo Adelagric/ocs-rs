@@ -73,6 +73,14 @@ if have Rscript && rok BGLR && rok optiSel && rok ocsrs; then
   if [ -f /tmp/pig/FileS1/genotypes.txt ]; then
     Rscript research/repro/r_optisel_slow_reps.R || echo "  slow-cell reps failed"
   fi
+  # The sexed pig sub-panel: the one instance with a real EBV and a real sex, sex
+  # derived from the pedigree the PIC download ships. Also exports the dense K at
+  # that cap, which step 6 needs for this row's algorithm column.
+  if [ -f /tmp/pig/FileS1/pedigree.txt ]; then
+    Rscript research/repro/r_binding_pig_sexed.R 5 || echo "  sexed pig sub-panel failed"
+  else
+    echo "  SKIP sexed pig sub-panel: /tmp/pig/FileS1/pedigree.txt absent"
+  fi
 else
   echo "SKIP: needs Rscript + BGLR + optiSel + the ocsrs package"
   echo "      build it with:  R CMD INSTALL bindings/r"
@@ -85,7 +93,7 @@ if have Rscript && rok BGLR; then
   Rscript research/repro/r_export_K.R || echo "  K export failed"
 fi
 if have python3 && pyok numpy && pyok scipy; then
-  for n in 1000 2000 5000 599 1814 3534; do
+  for n in 1000 2000 5000 599 1814 3534 1194; do
     ub_file="/tmp/bench_ub_${n}.txt"
     if [ -f "$ub_file" ] && [ -f "/tmp/bench_K_${n}.csv" ]; then
       ub="$(cat "$ub_file")"

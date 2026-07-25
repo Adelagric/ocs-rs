@@ -51,7 +51,7 @@ n×n G (the order-of-magnitude speed is the tiny active set, not the matrix-free
 On real data — a CIMMYT wheat panel (n=599), a PIC pig panel (n=3534, 52k SNP) and a
 heterogeneous-stock mouse panel (n=1814, with real sex) — it returns the exact optimum on the
 kinship boundary, agreeing to 1e-8 with a conic interior-point solver that itself stops just
-short of that boundary. It is also fast: 18×–182× faster end to end than optiSel while forming
+short of that boundary. It is also fast: 13×–182× faster end to end than optiSel while forming
 no G at all (and, handed G as the interior-point tools require it, up to ~2500×), and ~76000×
 faster at n=10000 than a general conic solver in a Rust-against-Rust comparison that carries no
 language confound. Against AlphaMate — a heuristic for the distinct problem of discrete mate
@@ -83,7 +83,7 @@ reproducible OCS practical at genomic scale, on a laptop.
 
 ### 3. Results
 - **3.1 Exactness.** support-first vs optiSel and vs Clarabel: max |Δc|, Δgain, Δcoancestry across k. → Δgain ≈ 1e-8 vs the conic optimum; cross-language vs the numpy prototype 1.5e-14; equal gain at matched coancestry, with support-first on the boundary where optiSel's IPM stops interior.
-- **3.2 Speed & scaling.** vs Clarabel to n=10000 (76179×: 1792 s → 0.024 s, Rust vs Rust, `research/repro/table1_numbers.md`); vs optiSel: shipped matrix-free 18×–182× end to end, algorithm given G ~90×–2500× (`research/repro/table2_numbers.md`).
+- **3.2 Speed & scaling.** vs Clarabel to n=10000 (76179×: 1792 s → 0.024 s, Rust vs Rust, `research/repro/table1_numbers.md`); vs optiSel: shipped matrix-free 13×–182× end to end, algorithm given G ~90×–2500× (`research/repro/table2_numbers.md`).
 - **3.3 Real-data benchmark table** (the headline — see SUPPORT_FIRST.md for current numbers).
 - **3.4 vs AlphaMate.** Equal-coancestry comparison: take AlphaMate's contribution vector, score gain and cᵀKc in our metric, compare support-first at the same coancestry; report time (AlphaMate self-reported CPU vs support-first wall). Result (mouse): on the continuous relaxation the two share, these Δgain are the optimality gap the differential-evolution heuristic leaves on the table — +0.004 at the 45° tradeoff, +0.018 / +0.080 at the higher / lower coancestry corners — read as an exact-vs-stochastic consistency check, not a win at AlphaMate's own discrete-mating task (out of scope here). AlphaMate's frontier cost 882 s CPU vs ≤1.1 s per point exact. Also report robustness: AlphaMate required 6 configurations and 3 distinct work-arounds (matings<n; full parent set to avoid a setup segfault; positive-shifted criterion to avoid a value/max sign inversion) to run on a real genomic instance, whereas support-first and optiSel ran unmodified.
 - **3.5 Support behaviour.** |support| vs k: tiny at the operating point (19 at the mouse working coancestry), grows only as coancestry → 0 (~1163 to force group coancestry ≈ 0); bounded 14–19 as n→40000 at a fixed binding cap. Interpretable, exact frontier traced in ms–s.
@@ -151,7 +151,7 @@ abstracts; "not found in OCS" = thoroughly searched English-indexed literature.
 | Matrix-free G·c, never forms G | **Verified + measured** | per-product O(n·m); measured slower than dense G·c when m>n (n=2000/m=10000) — it is the memory/large-n enabler, not an inner-loop speedup. Scaling plot done (scaling_matrixfree): dense G → 11.9 GiB infeasible at n=40k while matrix-free solves in 78 ms |
 | Speedup source is algorithmic, not matrix-free | **Measured** | the dense-G active set (proto) and the matrix-free Rust both beat optiSel via the same tiny active set; matrix-free trades some speed for never forming G. State explicitly so the matrix-free claim is not oversold |
 | ~76000× vs Clarabel at n=10000 | **Measured** | idle M4 Max, one serial sweep, Rust vs Rust in one process (`compare --n N`); 1792 s → 0.024 s; supersedes the earlier 37090× (pre-optimisation, no stated provenance) |
-| vs optiSel: shipped 18×–182×, algorithm ~90×–2500× | **Measured** | M4 Max, idle, medians (matrix-free/algorithm 5×, optiSel 3×), all six panels; pig shipped 0.622 s (80×) / algorithm 0.020 s (~2500×) vs optiSel 49.9 s; two-column Table 2, `research/repro/table2_numbers.md` |
+| vs optiSel: shipped 13×–182×, algorithm ~90×–2500× | **Measured** | M4 Max, idle, medians (matrix-free/algorithm 5×, optiSel 3×), all six panels; pig shipped 0.622 s (80×) / algorithm 0.020 s (~2500×) vs optiSel 49.9 s; two-column Table 2, `research/repro/table2_numbers.md` |
 | vs AlphaMate at equal coancestry | **Measured** | mouse run6: support-first gain strictly > AlphaMate at all 3 frontier points (Δ +0.004 at the 45° opt, +0.018 / +0.080 elsewhere); AlphaMate 882 s CPU for the frontier vs ≤1.1 s/point exact |
 | AlphaMate fragility on genomic data | **Measured (qualitative)** | 6 configs, 3 work-arounds (matings<n; full parent set vs a setup segfault; positive-shifted criterion vs a value/max sign inversion); tighten into one paragraph |
 | Novelty of the method | **Resolved** | see §Novelty positioning — the OCS combination (reduced-cost support-growing + genomic matrix-free) is defensible; 3 ingredients conceded; pre-empt Yamashita 2018 + Markowitz CLA |

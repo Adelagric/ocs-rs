@@ -72,7 +72,7 @@ rather than only the favourable one.
 Table 1 isolates the algorithm; what matters to a breeder is the comparison against
 optiSel, the standard exact OCS tool, on its own formulation. After extending support-first
 to the two sex-equality constraints, it returns the same optimum as optiSel. The
-shipped matrix-free solver — forming no `G` at all — runs **18×–182×** faster across
+shipped matrix-free solver — forming no `G` at all — runs **13×–182×** faster across
 real and synthetic panels (Table 2), the factor widening with n as optiSel's
 interior-point cost climbs. Given `G` precomputed, as the interior-point tools
 require, the active set alone reaches the same optimum **~90×–2500×** faster: that is
@@ -96,13 +96,14 @@ handed the identical problem as `k = 2·ub` on `G + 2×10⁻⁵ I`.
 | CIMMYT wheat (real GRM) | 599 | 1279 | 0.003 s | 0.008 s | 0.595 s | 74× |
 | PIC pig (real GRM, 52k SNP) | 3534 | 52843 | 0.020 s | 0.622 s | 49.9 s | 80× |
 | HS mouse (real GRM, real sex) | 1814 | 10346 | 0.008 s | 0.057 s | 6.93 s | 122× |
+| PIC pig, sexed sub-panel (real EBV **and** real sex) | 1194 | 52843 | 0.004 s | 0.227 s | 2.85 s | 13× |
 
 ¹ active set given a precomputed dense `G`, solve only — the regime optiSel runs in
 (NumPy prototype); ² matrix-free, forming no `G`, end to end including the R-binding
 genotype copy (shipped Rust); ³ optiSel / matrix-free.
 
 The speed-up column is the shipped solver, which forms nothing, against optiSel:
-18×–182×. The algorithm column — the active set handed `G` as the interior-point
+13×–182×. The algorithm column — the active set handed `G` as the interior-point
 tools are — reaches the same optimum ~90×–2500× faster than optiSel (the pig's
 ~2500× the largest, and the origin of this work's earlier figure), but that column
 pays the `O(n²m)` to build and `O(n²)` to store `G` that the matrix-free solver never
@@ -111,10 +112,25 @@ every panel, and the matrix-free column is what that costs to keep nothing dense
 memory. On the pig much of the shipped 0.622 s is the R binding copying the 1.5 GB
 genotype matrix, so at m = 52 843 data movement, not the solve, sets the end-to-end
 number. Both columns return the same optimum on every row, reaching the boundary
-optiSel stops just inside. The mouse row is the true sexed OCS, on a genuine recorded
-sex (934 males, 880 females). Caveats to the Discussion: sex is real only for the
-mouse panel; and the selection criterion is a recorded phenotype or EBV used as a
-proxy for a genomic breeding value.
+optiSel stops just inside.
+
+The last row is the one instance carrying a real breeding value **and** a real sex at
+once, and so the one closest to what a breeding programme actually runs. Sex is not
+assumed there but read off the pedigree the PIC download ships — sire ⇒ male, dam ⇒
+female — which resolves 1194 of the 3534 genotyped animals (390 sires, 804 dams, none
+appearing as both), every one of them carrying a real EBV from the accompanying
+evaluation at a mean accuracy of 0.811. On it support-first reaches gain 1.844614
+against optiSel's 1.842975, on the constraint boundary where optiSel stops at 99.53%
+of it, with the sex budget split exactly in half and 6 males and 21 females selected
+out of 1194 candidates. It is also the least favourable row for the matrix-free
+route: at m/n ≈ 44 the marker matrix dominates, which is why its speed-up (13×) is
+the smallest in the table while the same solve given `G` takes 4 ms. That is the
+trade-off the Methods state, visible in the one row where it bites hardest — and the
+mouse row (934 males, 880 females) remains the other genuinely sexed instance.
+Caveats to the Discussion: on wheat and mouse the selection criterion is a recorded
+phenotype rather than a breeding value, and in no panel is it a *genomic* breeding
+value; and the sexed pig sub-panel, being the animals that became parents, is a
+post-selection subset.
 
 ## Comparison with the heuristic AlphaMate
 

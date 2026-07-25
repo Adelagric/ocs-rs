@@ -187,6 +187,43 @@ The `G·c` product itself was only ~8% of a mouse solve, not the bottleneck the 
 assumed; exploiting the sparsity of `c` there still gives 1.5×–1.8× on the product
 (`examples/bench_matvec`), kept because it is free, but it is not where the time was.
 
+### Update — the sexed pig sub-panel: real EBV and real sex at once
+
+The two standing data caveats were that the selection criterion stood in for a
+breeding value, and that a recorded sex existed only for the mouse panel. Both are
+lifted on one instance, and the data for it was already in the PIC download: it ships
+a `pedigree.txt` the export scripts never opened. A pedigree assigns sex without
+ambiguity — sire ⇒ male, dam ⇒ female — and intersecting it with the genotyped
+animals recovers a real sex for **1194 of the 3534** (390 sires, 804 dams, none
+appearing as both), every one carrying a real EBV from the accompanying evaluation
+(mean accuracy 0.811 on trait 3).
+
+Measured on the idle machine (`r_binding_pig_sexed.R`, ocsrs 5x, optiSel 3x):
+
+| | optiSel | matrix-free | algorithm (G given) |
+|---|---|---|---|
+| time | 2.85 s | 0.227 s | 0.004 s |
+| speed-up | — | 13x | 712x |
+| gain | 1.842975 | 1.844614 | 1.844614 |
+| coancestry | 99.53% of ub | 100% (boundary) | 100% |
+| support | 29 | 27 | 27 |
+
+Sex budget split exactly (0.5/0.5), 6 males and 21 females selected out of 1194.
+
+Two honest notes. optiSel varied more here than elsewhere between invocations
+(medians 2.669 s and 3.163 s across two independent runs, tight within each); the
+table uses the pooled median of all six samples, 2.85 s, which is the conservative
+choice. And this is the **least favourable row for matrix-free** in the whole paper:
+at m/n ≈ 44 the marker matrix dominates, so its 13x is the smallest speed-up reported
+while the same solve handed `G` takes 4 ms — the m > n trade-off the Methods state,
+showing up where it bites hardest. Including it lowers the headline range from
+18x-182x to 13x-182x, which is the correct direction for the most realistic instance
+in the set.
+
+Caveat carried into the paper: sex is recoverable precisely for the animals that
+became parents, so the sub-panel is a post-selection subset rather than a random
+sample of selection candidates.
+
 ### Update — Table 1 re-measured (Clarabel), the language-confound-free comparison
 
 The Clarabel head-to-head had never been re-run after the incremental-Gram work, and

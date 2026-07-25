@@ -140,15 +140,30 @@ The method is evaluated on three public marker panels: a CIMMYT wheat panel
 (`BGLR`, n = 599), a PIC pig panel (n = 3534, 52k SNP, with real estimated
 breeding values), and a heterogeneous-stock mouse panel (`BGLR`, n = 1814, with
 recorded sex, 934 males and 880 females, using body-mass index as the selection
-criterion). For each, **G** is the VanRaden matrix with ridge ε = 10⁻⁵. Baselines
-are optiSel (R, the `cccp` Nesterov–Todd interior-point solver; the exact domain
-reference), Clarabel (the conic cross-check), and AlphaMate (Fortran differential
-evolution; run from its Linux binary under emulation, as no macOS build exists and
-the source is locked to an Intel toolchain). Honest caveats carried into the
-Discussion: recorded sex is available only for the mouse panel (an arbitrary
-balanced split is used elsewhere — wheat is autogamous and the PIC panel ships no
-usable sex); the selection criterion **b** is a recorded phenotype or EBV standing
-in for a true genomic breeding value on these public panels; and the optiSel
+criterion). For each, **G** is the VanRaden matrix with ridge ε = 10⁻⁵.
+
+A fourth instance is derived from the PIC panel and is the only one carrying a real
+breeding value and a real sex at once. The PIC download ships a pedigree, and a
+pedigree assigns sex without ambiguity: an animal appearing in the sire column is
+male, in the dam column female. Intersecting that with the genotyped animals
+recovers a recorded sex for 1194 of the 3534 (390 sires, 804 dams; no animal appears
+as both), each of which carries a real estimated breeding value from the
+accompanying evaluation (mean accuracy 0.811 on trait 3). Allele frequencies, and
+hence **G**, are recomputed on the retained animals. Because sex is recoverable here
+precisely for the animals that became parents, this sub-panel is a post-selection
+subset rather than a random sample of selection candidates — a property of the
+recovery, not a choice, and one that bears on the interpretation of the contribution
+vector rather than on what the benchmark measures.
+
+Baselines are optiSel (R, the `cccp` Nesterov–Todd interior-point solver; the exact
+domain reference), Clarabel (the conic cross-check), and AlphaMate (Fortran
+differential evolution; run from its Linux binary under emulation, as no macOS build
+exists and the source is locked to an Intel toolchain). Honest caveats carried into
+the Discussion: recorded sex is real for the mouse panel and for the sexed pig
+sub-panel, while wheat (autogamous) and the full pig panel use an arbitrary balanced
+split; the selection criterion **b** is a real estimated breeding value on the pig
+panels and a recorded phenotype standing in for one on wheat and mouse, and in
+neither case a *genomic* breeding value; and the optiSel
 head-to-head (Table 2) reports two support-first timings — the active set given a
 dense **G** (the regime optiSel runs in, a NumPy prototype) and the shipped
 matrix-free Rust solver end to end — so the algorithmic advantage and what the
