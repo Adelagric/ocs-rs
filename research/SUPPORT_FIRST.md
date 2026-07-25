@@ -146,25 +146,31 @@ After that fix, support-first solves the same problem as optiSel, reaching the
 (equal gain at matched realised coancestry; the edge is unspent diversity budget),
 at:
 
-| dataset | n | support-first | optiSel | speedup |
-|---|---|---|---|---|
-| synthetic (structured) | 1000 | 0.09 s | 2.0 s | 22× |
-| synthetic (structured) | 2000 | 0.29 s | 11.9 s | 41× |
-| synthetic (structured) | 5000 | 1.47 s | 143 s | 97× |
-| **wheat** (real CIMMYT GRM) | 599 | 0.007 s | 0.63 s | 90× |
-| **PIC pig** (real GRM, 52k SNP) | **3534** | **0.024 s** | **54.8 s** | **~2280×** |
-| **HS mice** (real GRM, **REAL sex** 934♂/880♀) | **1814** | **0.008 s** | **6.96 s** | **~870×** |
+Two support-first columns (medians, idle M4 Max, one session; matrix-free & algorithm
+5×, optiSel 3×). **algorithm** = active set given a dense `G`, solve only (the regime
+optiSel runs in). **matrix-free** = shipped Rust solver, forms no `G`, end to end incl.
+the R-binding copy. Full provenance: `research/repro/table2_numbers.md`.
+
+| dataset | n | m | algorithm | matrix-free | optiSel | algo× | shipped× |
+|---|---|---|---|---|---|---|---|
+| synthetic (structured) | 1000 | 500 | 0.023 s | 0.117 s | 2.06 s | 90× | 18× |
+| synthetic (structured) | 2000 | 500 | 0.102 s | 0.280 s | 13.16 s | 129× | 47× |
+| synthetic (structured) | 5000 | 500 | 0.506 s | 0.902 s | 163.8 s | 324× | 182× |
+| **wheat** (real CIMMYT GRM) | 599 | 1279 | 0.003 s | 0.008 s | 0.595 s | 198× | 74× |
+| **PIC pig** (real GRM, 52k SNP) | **3534** | 52843 | **0.020 s** | **0.622 s** | **49.9 s** | **~2500×** | **80×** |
+| **HS mice** (real GRM, **REAL sex** 934♂/880♀) | **1814** | 10346 | **0.008 s** | **0.057 s** | **6.93 s** | **866×** | **122×** |
 
 The **mouse row is the *true* sexed OCS** — a genuine recorded sex (BGLR `mice`,
-GENDER complete, 0 missing), not an arbitrary partition. Caveats kept explicit:
-support-first is the numpy prototype, optiSel is R/`cccp` (the gap is algorithmic,
-not language); the synthetic / wheat / pig rows use an **arbitrary 2-group sex
-partition** (wheat is autogamous; PIC ships no usable sex — chromosomes removed,
-only 390/3534 identifiable sires) so those benchmark the *solvers* on a real GRM
-rather than the true sexed OCS; `b` is a real phenotype/EBV (mouse BMI, pig
-trait-3 EBV); and the speedup grows with how *small* the active support is (a very
-tight `k` enlarges it and shrinks the factor). The first revision (proto "naively
-slower than optiSel") was entirely the one-at-a-time feasibility phase —
+GENDER complete, 0 missing), not an arbitrary partition. Caveats kept explicit: the
+**algorithm** column is a NumPy prototype given `G` (the same regime as optiSel) and
+is what the earlier ~2280× measured; the **matrix-free** column is the shipped Rust
+solver end to end and is the honest headline (18×–182×). The synthetic / wheat / pig
+rows use an **arbitrary 2-group sex partition** (wheat is autogamous; PIC ships no
+usable sex — chromosomes removed, only 390/3534 identifiable sires) so those benchmark
+the *solvers* on a real GRM rather than the true sexed OCS; `b` is a real phenotype/EBV
+(mouse BMI, pig trait-3 EBV); and the speedup grows with how *small* the active support
+is (a very tight `k` enlarges it and shrinks the factor). The first revision (proto
+"naively slower than optiSel") was entirely the one-at-a-time feasibility phase —
 corrected, the advantage is real, exact, and grows with scale.
 
 ## Where it sits vs the state of the art
@@ -187,12 +193,13 @@ governed by `|S|` rather than `n³`.
 
 1. **Exactness & wall-clock — cleared.** Head-to-head vs Clarabel (pool-unique,
    identical data, n=5000: Δgain 1.9e-9, same support) and vs optiSel (sex
-   constraint, real wheat and pig GRMs): same optimum every time, measured
-   speedups from 22× to ~2280×. Not extrapolation.
+   constraint, real wheat and pig GRMs): same optimum every time. Shipped
+   matrix-free 18×–182× end to end; given `G`, the active set alone ~90×–2500×.
+   Not extrapolation.
 2. **True sexed OCS — cleared.** HS mice (BGLR `mice`, real GENDER 934♂/880♀,
    1814 individuals, real 10k-SNP GRM): support-first matches optiSel's optimum
-   and solves in 0.008 s vs 6.96 s (~870×). The genuine reproduction constraint,
-   not an arbitrary partition.
+   and solves in 0.057 s vs 6.93 s (122× shipped; 866× as the given-`G` algorithm).
+   The genuine reproduction constraint, not an arbitrary partition.
 3. **`|S|` on broad real populations / tight k.** On real pig data `|S|`≈28 (huge
    speedup); a conservation-grade tight `k` would enlarge `|S|` and shrink the
    factor — still bounded by structure, but to be mapped.

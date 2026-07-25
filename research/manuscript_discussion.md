@@ -34,14 +34,14 @@ recommendations. Second, a genuine recorded sex is available only for the mouse
 panel; elsewhere we impose an arbitrary balanced split, so only the mouse result
 exercises the true sexed constraints on real data. Third, Table 2 separates two things the speed claim used to conflate. The shipped
 matrix-free solver, timed end to end against optiSel including the genotype copy
-across the R binding, is 18×–193× faster; the active set given a dense `G` — the
+across the R binding, is 18×–182× faster; the active set given a dense `G` — the
 regime optiSel runs in, but forming and storing the `O(n²)` matrix — reaches the same
-optimum 58×–2445× faster, and it is this algorithmic figure the pig's 2445×
+optimum ~90×–2500× faster, and it is this algorithmic figure the pig's ~2500×
 represents. The two coincide in mechanism (the same tiny active set) and differ only
 in whether `G` is materialised, which is precisely the cost the matrix-free route
 avoids. That route is *not* an inner-loop speed-up when markers outnumber candidates
 (m > n): on the pig its end-to-end cost is dominated by streaming and copying the
-52k-marker matrix, and its 88× understates the algorithm — a true zero-copy binding,
+52k-marker matrix, and its 80× understates the algorithm — a true zero-copy binding,
 of the kind the Python path uses, would lift it. The matrix-free route is the memory
 and large-n enabler; the speed advantage over the conic solvers is the small active
 set. Fourth, the

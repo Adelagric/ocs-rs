@@ -26,8 +26,11 @@ mouse n=1814 with real sex):
   edge being the diversity budget left unspent, not a different solution. At least
   as accurate as the domain tool, exact where it is merely close. Cross-language
   agreement with a NumPy reference: `1.5e-14`.
-- **vs optiSel** (the standard exact tool): **90×–2280×** faster, same optimum
-  (mouse: 0.008 s vs 6.96 s).
+- **vs optiSel** (the standard exact tool): the shipped matrix-free solver, forming
+  no `G`, is **18×–182×** faster end to end, same optimum (mouse: 0.057 s vs 6.9 s).
+  Handed `G` precomputed — as the interior-point tools require it — the active set
+  alone reaches the same optimum up to **~2500×** faster (the algorithmic advantage;
+  see the two-column [`Table 2`](research/repro/table2_numbers.md)).
 - **vs Clarabel** (a generic conic solver): up to **37090×** at n=10000
   (26 minutes → 43 ms).
 - **vs AlphaMate** (a heuristic for the *distinct* discrete-mating problem): on the

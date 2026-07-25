@@ -52,41 +52,42 @@ matrix–vector products (3–6 here), each O(n·m).
 A generic solver is a soft target; the informative comparison is against optiSel,
 the standard exact OCS tool, on its own formulation. After extending support-first
 to the two sex-equality constraints, it returns the same optimum as optiSel. The
-shipped matrix-free solver — forming no `G` at all — runs **18×–193×** faster across
+shipped matrix-free solver — forming no `G` at all — runs **18×–182×** faster across
 real and synthetic panels (Table 2), the factor widening with n as optiSel's
 interior-point cost climbs. Given `G` precomputed, as the interior-point tools
-require, the active set alone reaches the same optimum **58×–2445×** faster: that is
-the algorithmic advantage this section dissects, and the matrix-free solver keeps
-most of it while never building the matrix at all.
+require, the active set alone reaches the same optimum **~90×–2500×** faster: that is
+the algorithmic advantage this section dissects, and the matrix-free solver trades
+part of it for never building the matrix at all.
 
-**Table 2.** support-first vs optiSel, same optimum throughout, one R session on one
-instance (Apple M4 Max). Two support-first columns: the active set given a dense `G`
-(the regime optiSel runs in), and the shipped matrix-free solver, which forms no `G`,
-timed end to end from genotypes including the R-binding copy.
+**Table 2.** support-first vs optiSel, same optimum throughout, one idle R session on
+one instance (Apple M4 Max); each time a median (matrix-free and algorithm 5×,
+optiSel 3×). Two support-first columns: the active set given a dense `G` (the regime
+optiSel runs in), and the shipped matrix-free solver, which forms no `G`, timed end
+to end from genotypes including the R-binding copy.
 
 | dataset | n | m | algorithm¹ | matrix-free² | optiSel | speed-up³ |
 |---|---|---|---|---|---|---|
-| synthetic (structured) | 1000 | 500 | 0.025 s | 0.120 s | 2.11 s | 18× |
-| synthetic (structured) | 2000 | 500 | 0.105 s | 0.282 s | 13.56 s | 48× |
-| synthetic (structured) | 5000 | 500 | 0.504 s | 0.901 s | 173.8 s | 193× |
-| CIMMYT wheat (real GRM) | 599 | 1279 | 0.011 s | 0.009 s | 0.634 s | 70× |
-| PIC pig (real GRM, 52k SNP) | 3534 | 52843 | 0.022 s | 0.611 s | 53.8 s | 88× |
-| HS mouse (real GRM, real sex) | 1814 | 10346 | 0.009 s | 0.057 s | 6.94 s | 122× |
+| synthetic (structured) | 1000 | 500 | 0.023 s | 0.117 s | 2.06 s | 18× |
+| synthetic (structured) | 2000 | 500 | 0.102 s | 0.280 s | 13.16 s | 47× |
+| synthetic (structured) | 5000 | 500 | 0.506 s | 0.902 s | 163.8 s | 182× |
+| CIMMYT wheat (real GRM) | 599 | 1279 | 0.003 s | 0.008 s | 0.595 s | 74× |
+| PIC pig (real GRM, 52k SNP) | 3534 | 52843 | 0.020 s | 0.622 s | 49.9 s | 80× |
+| HS mouse (real GRM, real sex) | 1814 | 10346 | 0.008 s | 0.057 s | 6.93 s | 122× |
 
 ¹ active set given a precomputed dense `G`, solve only — the regime optiSel runs in
 (NumPy prototype); ² matrix-free, forming no `G`, end to end including the R-binding
 genotype copy (shipped Rust); ³ optiSel / matrix-free.
 
 The speed-up column is the shipped solver, which forms nothing, against optiSel:
-18×–193×. The algorithm column — the active set handed `G` as the interior-point
-tools are — reaches the same optimum 58×–2445× faster than optiSel (the pig's 2445×
-the largest, and the origin of this work's earlier figure), but that column pays the
-`O(n²m)` to build and `O(n²)` to store `G` that the matrix-free solver never does. On
-the pig the shipped 0.611 s is mostly the R binding copying the 1.5 GB genotype
-matrix — the solve is ~0.34 s — so at m = 52 843 that copy, not the solve, sets the
-end-to-end number. Wheat shows the reverse: matrix-free (0.009 s) beats the dense-`G`
-prototype (0.011 s), because at small m the products are cheaper than indexing a
-dense `G`. Both columns return the same optimum on every row, reaching the boundary
+18×–182×. The algorithm column — the active set handed `G` as the interior-point
+tools are — reaches the same optimum ~90×–2500× faster than optiSel (the pig's
+~2500× the largest, and the origin of this work's earlier figure), but that column
+pays the `O(n²m)` to build and `O(n²)` to store `G` that the matrix-free solver never
+does; handed `G`, the solve avoids streaming `Z`, so it is the faster of the two on
+every panel, and the matrix-free column is what that costs to keep nothing dense in
+memory. On the pig much of the shipped 0.622 s is the R binding copying the 1.5 GB
+genotype matrix, so at m = 52 843 data movement, not the solve, sets the end-to-end
+number. Both columns return the same optimum on every row, reaching the boundary
 optiSel stops just inside. The mouse row is the true sexed OCS, on a genuine recorded
 sex (934 males, 880 females). Caveats to the Discussion: sex is real only for the
 mouse panel; and the selection criterion is a recorded phenotype or EBV used as a
