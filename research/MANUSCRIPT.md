@@ -277,10 +277,13 @@ the source is locked to an Intel toolchain). Honest caveats carried into the
 Discussion: recorded sex is available only for the mouse panel (an arbitrary
 balanced split is used elsewhere — wheat is autogamous and the PIC panel ships no
 usable sex); the selection criterion **b** is a recorded phenotype or EBV standing
-in for a true genomic breeding value on these public panels; and the prototype
-timings compare a NumPy support-first against R/optiSel, an algorithmic rather
-than a language difference, with the single-language Rust timing reported
-separately.
+in for a true genomic breeding value on these public panels; and the optiSel
+head-to-head (Table 2) reports two support-first timings — the active set given a
+dense **G** (the regime optiSel runs in, a NumPy prototype) and the shipped
+matrix-free Rust solver end to end — so the algorithmic advantage and what the
+shipped tool actually pays are separated rather than conflated. The Clarabel
+comparison (Table 1) is Rust against Rust on the same machine, and so carries no
+language confound at all.
 
 ## 3. Results
 
