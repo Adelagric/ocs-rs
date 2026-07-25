@@ -38,7 +38,9 @@ that never forms it: on a laptop it solves an instance (n = 40000) whose dense m
 (11.9 GiB) the established tools cannot allocate, the optimal support holding at about fifteen
 individuals — doing what is otherwise infeasible, not merely doing it faster. It exploits two
 structural facts of OCS: the optimal
-contribution vector is supported on a tiny subset of candidates (typically 2–50 of n),
+contribution vector is supported on a small subset of candidates — a few dozen at the caps
+breeding programmes use (19–28 of n on the real panels here), growing only as the cap
+approaches minimum coancestry —
 and the only difficulty is combinatorial — which candidates are free versus pinned at a
 bound (zero, or a per-candidate cap). Support-first grows the
 support by an active-set / column-generation rule and solves each fixed-support subproblem
@@ -143,7 +145,7 @@ abstracts; "not found in OCS" = thoroughly searched English-indexed literature.
 | Claim | Status | Source / what's needed |
 |---|---|---|
 | support-first returns the OCS optimum exactly | **Verified** | matches optiSel & Clarabel to 1e-9–1e-12 across k (correctness tests + sf_at_ub reproduces optiSel gain/coancestry) |
-| Optimal support is tiny (2–50) and grows only near zero coancestry | **Measured** | support 19 at mouse operating point; ~1163 forcing coancestry≈0 (sf_at_ub run) |
+| Optimal support is small and grows as the cap tightens | **Measured** | 19 (mouse), 24 (wheat), 28 (pig) at their operating caps; 59–168 on the tight-cap synthetic rows of Table 2; ~1163 forcing coancestry≈0 (sf_at_ub run) |
 | Optimal support is **bounded in n** | **Measured** | scaling_matrixfree: support 14–19 across n = 1000→40000 at a fixed binding cap; the basis for cost scaling with the support, not n |
 | Matrix-free G·c, never forms G | **Verified + measured** | per-product O(n·m); measured slower than dense G·c when m>n (n=2000/m=10000) — it is the memory/large-n enabler, not an inner-loop speedup. Scaling plot done (scaling_matrixfree): dense G → 11.9 GiB infeasible at n=40k while matrix-free solves in 78 ms |
 | Speedup source is algorithmic, not matrix-free | **Measured** | the dense-G active set (proto) and the matrix-free Rust both beat optiSel via the same tiny active set; matrix-free trades some speed for never forming G. State explicitly so the matrix-free claim is not oversold |

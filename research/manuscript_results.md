@@ -59,11 +59,14 @@ require, the active set alone reaches the same optimum **~90×–2500×** faster
 the algorithmic advantage this section dissects, and the matrix-free solver trades
 part of it for never building the matrix at all.
 
-**Table 2.** support-first vs optiSel, same optimum throughout, one idle R session on
-one instance (Apple M4 Max); each time a median (matrix-free and algorithm 5×,
-optiSel 3×). Two support-first columns: the active set given a dense `G` (the regime
-optiSel runs in), and the shipped matrix-free solver, which forms no `G`, timed end
-to end from genotypes including the R-binding copy.
+**Table 2.** support-first vs optiSel, same optimum throughout, measured serially on
+one idle machine (Apple M4 Max): the matrix-free solver and optiSel in one R session,
+the algorithm prototype in Python on the same instances. Each time is a median
+(matrix-free and algorithm 5×, optiSel 3×). Two support-first columns: the active set
+given a dense `G` (the regime optiSel runs in), and the shipped matrix-free solver,
+which forms no `G`, timed end to end from genotypes including the R-binding copy.
+optiSel constrains `cᵀ sKin c ≤ ub` on `sKin = G/2 + 10⁻⁵ I`, so support-first is
+handed the identical problem as `k = 2·ub` on `G + 2×10⁻⁵ I`.
 
 | dataset | n | m | algorithm¹ | matrix-free² | optiSel | speed-up³ |
 |---|---|---|---|---|---|---|
