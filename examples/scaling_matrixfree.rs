@@ -25,6 +25,11 @@ fn main() {
     let ridge = 1e-5;
     let build_ceiling = 30_000usize; // build/time dense G up to here (RAM-safe at 6.7 GiB)
 
+    // Figure 1 reads these rows rather than carrying a hand-copied duplicate of them,
+    // so regenerating the figure cannot silently lag a change to the solver.
+    let csv_path = "artifacts/scaling_matrixfree.csv";
+    let mut csv = String::from("n,m,z_gib,g_gib,g_build_s,mfree_solve_s,support,status\n");
+
     println!("matrix-free vs dense-G   m={m}  (sexed OCS, release profile)");
     println!(
         "{:>7} {:>9} {:>9} {:>12} {:>14} {:>8} {:>8}",
@@ -64,6 +69,21 @@ fn main() {
             last.support.len(),
             format!("{:?}", last.status)
         );
+        csv.push_str(&format!(
+            "{n},{m},{:.4},{:.4},{g_build},{best:.4},{},{:?}\n",
+            gib(n * m),
+            gib(n * n),
+            last.support.len(),
+            last.status
+        ));
+    }
+
+    if let Err(e) =
+        std::fs::create_dir_all("artifacts").and_then(|()| std::fs::write(csv_path, &csv))
+    {
+        eprintln!("[scaling] could not write {csv_path}: {e}");
+    } else {
+        eprintln!("[scaling] wrote {csv_path}");
     }
     println!(
         "G GiB is what a dense solver (optiSel/AlphaMate/Clarabel-on-G) must allocate; \

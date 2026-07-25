@@ -12,7 +12,7 @@ Support-first is exact by construction: for a convex program a feasible point at
 which no candidate has a positive reduced cost satisfies the KKT conditions, and
 this is what the active set certifies on termination (and what the unit tests
 assert across a range of kinship caps). Empirically, on the optiSel `Cattle`
-example (Angler cattle, n = 268) with the package's own real recorded sex,
+example (Angler cattle, n = 268) using the sex the package ships (its phenotypes are simulated, which does not matter here: this is a solver-against-solver agreement check, not a claim about cattle),
 support-first and optiSel select the *same* 36-individual support and agree on the
 contributions to within 3×10⁻⁴ (maximum contribution 0.0664 vs 0.0661). They differ
 only at the kinship boundary: the OCS optimum sits on the cap (gain is monotone in
@@ -179,8 +179,8 @@ The cost advantage holds — and grows — at scale. Sweeping the candidate coun
 1000 to 40000 at a fixed marker panel (m = 1000) under a binding kinship cap, the
 optimal support stays between 14 and 19 (Figure 1A) and the matrix-free solve
 stays under 0.1 s. The dense relationship matrix that every other solver must
-materialise tells the opposite story. Merely *building* it costs O(n²m): 3.6 s at
-n = 30000, already 63× the entire support-first solve at that size, and rising
+materialise tells the opposite story. Merely *building* it costs O(n²m): 3.4 s at
+n = 30000, already 113× the entire support-first solve at that size, and rising
 quadratically (Figure 1A). *Storing* it costs O(n²): 11.9 GiB at n = 40000, where
 the matrix-free Z footprint is 0.30 GiB and the dense matrix no longer fits in a
 laptop's working memory (Figure 1B). The dense matrix becomes the binding

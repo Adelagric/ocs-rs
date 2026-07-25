@@ -1,26 +1,50 @@
 """Headline figure: support-first scales to genomic n where the dense matrix cannot.
 
-Data from examples/scaling_matrixfree (m=1000, binding cap k=0.1*mean_diag,
-release profile). Memory curves are exact footprints (n^2*8 for dense G,
-n*m*8 for Z). Build time and solve time are measured; the dense-G build at
-n=40000 is projected (G too large to build inside the free RAM) and marked open.
+Data is read from artifacts/scaling_matrixfree.csv, written by
+`cargo run --release --example scaling_matrixfree` (m=1000, binding cap
+k=0.1*mean_diag, release profile). It used to be hand-copied into this file, which
+let the figure lag the solver: after the incremental-Gram work halved the solve
+times, the committed figure kept the old curve. Reading the artifact removes that
+failure mode — regenerate the CSV and the figure follows.
+
+Memory curves are exact footprints (n^2*8 for dense G, n*m*8 for Z). Build and solve
+times are measured; the dense-G build at n=40000 is not run (G exceeds free RAM) and
+is projected ~n^2, marked open.
 Outputs research/fig_scaling.{pdf,png}.
 """
+import csv
+import pathlib
+import sys
+
 import numpy as np
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# --- measured (binding cap), examples/scaling_matrixfree ---
-n = np.array([1000, 2000, 5000, 10000, 20000, 30000, 40000], float)
-support = np.array([14, 15, 15, 19, 16, 17, 16], float)
-solve_s = np.array([0.0079, 0.0085, 0.0158, 0.0307, 0.0413, 0.0573, 0.0785])
-# dense-G build time: measured to n=30000; n=40000 not built (RAM), projected ~n^2.
-build_n = np.array([1000, 2000, 5000, 10000, 20000, 30000], float)
-build_s = np.array([0.006, 0.020, 0.102, 0.402, 1.568, 3.599])
-build_proj_n, build_proj_s = 40000.0, 3.599 * (40000 / 30000) ** 2
-m = 1000
+CSV = pathlib.Path(__file__).resolve().parents[1] / "artifacts" / "scaling_matrixfree.csv"
+if not CSV.exists():
+    sys.exit(
+        f"{CSV} not found — run:\n"
+        "  cargo run --release --example scaling_matrixfree"
+    )
+
+rows = list(csv.DictReader(CSV.open()))
+n = np.array([float(r["n"]) for r in rows])
+support = np.array([float(r["support"]) for r in rows])
+solve_s = np.array([float(r["mfree_solve_s"]) for r in rows])
+m = int(rows[0]["m"])
+
+# The dense build is timed only where G fits in RAM; beyond that the example records
+# "infeasible" and the figure projects the O(n^2) trend from the last measured point.
+built = [r for r in rows if r["g_build_s"] != "infeasible"]
+build_n = np.array([float(r["n"]) for r in built])
+build_s = np.array([float(r["g_build_s"]) for r in built])
+unbuilt = [r for r in rows if r["g_build_s"] == "infeasible"]
+build_proj_n = float(unbuilt[0]["n"]) if unbuilt else None
+build_proj_s = (
+    build_s[-1] * (build_proj_n / build_n[-1]) ** 2 if build_proj_n else None
+)
 
 # --- exact memory footprints ---
 GIB = 2.0**30
@@ -54,12 +78,24 @@ axA.set_xlabel("candidates  n  (log scale)")
 axA.set_ylabel("time  (s, log scale)")
 axA.set_ylim(3e-3, 2e1)
 axA.legend(loc="upper left", frameon=False, fontsize=9.5)
+
+# Annotation computed from the data, not written by hand: the last n at which the
+# dense matrix was actually built, against the solve at that same n.
+i_last = int(np.argmax(build_n))
+n_last, t_build = build_n[i_last], build_s[i_last]
+t_solve = float(solve_s[np.argmin(np.abs(n - n_last))])
 axA.annotate(
-    "63× the solve at n=30k\n(3.6 s vs 57 ms)",
-    xy=(30000, 3.6), xytext=(1500, 6.0), fontsize=9, color=C_BUILD,
-    arrowprops=dict(arrowstyle="->", color=C_BUILD, lw=1),
+    f"{t_build / t_solve:.0f}× the solve at n={n_last / 1000:.0f}k\n"
+    f"({t_build:.1f} s vs {t_solve * 1000:.0f} ms)",
+    # upper-right: the only region both curves and the (upper-left) legend leave free
+    xy=(n_last, t_build), xytext=(13000, 11.0), fontsize=9, color=C_BUILD,
+    ha="center", arrowprops=dict(arrowstyle="->", color=C_BUILD, lw=1),
 )
-axA.text(1150, 5.5e-3, "support |S| = 14–19 throughout", fontsize=9, color=C_SOLVE)
+axA.text(
+    1150, 5.5e-3,
+    f"support |S| = {int(support.min())}–{int(support.max())} throughout",
+    fontsize=9, color=C_SOLVE,
+)
 
 # ---------- Panel B: the dense matrix is the memory wall ----------
 axB.set_title("B   …and does not fit in memory", loc="left", fontweight="bold", fontsize=11.5)
