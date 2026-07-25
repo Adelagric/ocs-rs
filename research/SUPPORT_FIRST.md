@@ -157,12 +157,12 @@ the R-binding copy. Full provenance: `research/repro/table2_numbers.md`.
 
 | dataset | n | m | algorithm | matrix-free | optiSel | algo× | shipped× |
 |---|---|---|---|---|---|---|---|
-| synthetic (structured) | 1000 | 500 | 0.023 s | 0.117 s | 2.06 s | 90× | 18× |
-| synthetic (structured) | 2000 | 500 | 0.102 s | 0.280 s | 13.16 s | 129× | 47× |
-| synthetic (structured) | 5000 | 500 | 0.506 s | 0.902 s | 163.8 s | 324× | 182× |
-| **wheat** (real CIMMYT GRM) | 599 | 1279 | 0.003 s | 0.008 s | 0.595 s | 198× | 74× |
-| **PIC pig** (real GRM, 52k SNP) | **3534** | 52843 | **0.020 s** | **0.622 s** | **49.9 s** | **~2500×** | **80×** |
-| **HS mice** (real GRM, **REAL sex** 934♂/880♀) | **1814** | 10346 | **0.008 s** | **0.057 s** | **6.93 s** | **866×** | **122×** |
+| synthetic (structured) | 1000 | 500 | 0.023 s | 0.116 s | 2.068 s | 90× | 18× |
+| synthetic (structured) | 2000 | 500 | 0.102 s | 0.278 s | 13.40 s | 131× | 48× |
+| synthetic (structured) | 5000 | 500 | 0.506 s | 0.905 s | 163.0 s | 322× | 180× |
+| **wheat** (real CIMMYT GRM) | 599 | 1279 | 0.003 s | 0.007 s | 0.596 s | 199× | 85× |
+| **PIC pig** (real GRM, 52k SNP) | **3534** | 52843 | **0.020 s** | **0.593 s** | **49.9 s** | **~2500×** | **84×** |
+| **HS mice** (real GRM, **REAL sex** 934♂/880♀) | **1814** | 10346 | **0.008 s** | **0.054 s** | **6.92 s** | **865×** | **128×** |
 
 The **mouse row is the *true* sexed OCS** — a genuine recorded sex (BGLR `mice`,
 GENDER complete, 0 missing), not an arbitrary partition. Caveats kept explicit: the
