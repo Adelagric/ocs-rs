@@ -26,18 +26,19 @@ support by an active-set / column-generation rule and solves each fixed-support 
 — maximise a linear objective over an ellipsoid intersected with the affine sum (and sex)
 constraints — in closed form, with no inner iterative solver; the kinship products G·c are
 formed matrix-free from the genotype matrix Z, the enabler that lets it never store the dense
-n×n G (the order-of-magnitude speed is the tiny active set, not the matrix-free product). On real data — a CIMMYT
-wheat panel (n=599), a PIC pig (n=3534, 52k SNP), and a heterogeneous-stock mouse panel
-(n=1814, with real sex) — support-first returns the exact optimum on the kinship
-boundary — agreeing with a conic interior-point solver to 1e-8, which itself stops just short
-of that boundary — the shipped matrix-free solver, forming no G, running 18×–182× faster
-end to end (and, given G as the interior-point tools require it, the active set alone up to
-~2500× faster) and ~76000× faster than a general conic solver (Clarabel) at n=10000. Against
-AlphaMate — a heuristic for the distinct problem of discrete mate allocation — the exact
-optimum is no worse at matched coancestry on the continuous relaxation the two share, at a
-fraction of the run time; per-candidate contribution caps
-(0 ≤ c ≤ u) are supported. Support-first makes exact, reproducible OCS practical at genomic
-scale on a laptop.
+n×n G (the order-of-magnitude speed is the tiny active set, not the matrix-free product).
+On real data — a CIMMYT wheat panel (n=599), a PIC pig panel (n=3534, 52k SNP) and a
+heterogeneous-stock mouse panel (n=1814, with real sex) — it returns the exact optimum on the
+kinship boundary, agreeing to 1e-8 with a conic interior-point solver that itself stops just
+short of that boundary. It is also fast: 18×–182× faster end to end than optiSel while forming
+no G at all (and, handed G as the interior-point tools require it, up to ~2500×), and ~76000×
+faster at n=10000 than a general conic solver in a Rust-against-Rust comparison that carries no
+language confound. Against AlphaMate — a heuristic for the distinct problem of discrete mate
+allocation — the exact optimum is no worse at matched coancestry on the continuous relaxation
+the two share; per-candidate contribution caps (0 ≤ c ≤ u) are supported. But the speed is the
+lesser result. Because a solve costs the support and the marker count rather than the n×n
+matrix, support-first stays cheap exactly where the established tools stop: it makes exact,
+reproducible OCS practical at genomic scale, on a laptop.
 
 ## 1. Introduction
 
@@ -114,24 +115,30 @@ exploits solution-support sparsity, and none is genotype-matrix-free; the
 benefit, as the matrix-free product is what makes a support-bounded solve pay off
 at genomic n, is the combination rather than any one part.
 
-On real data — a CIMMYT wheat panel (n = 599), a PIC pig (n = 3534, 52k SNP) and a
-heterogeneous-stock mouse panel (n = 1814, with real sex) — support-first reaches
-the exact optimum, agreeing with the conic optimum to 1e-8; at matched realised
-coancestry it agrees with the interior-point methods, and where they halt just
-inside the constraint support-first reaches the boundary, so its small edge is the
-diversity budget they leave unspent rather than a different optimum — the shipped
-matrix-free solver, forming no **G** at all, running 18×–182× faster end to end (and,
-handed **G** as the interior-point tools require it, the active set alone reaches the
-same optimum up to ~2500× faster), and ~76000× faster than a general conic
-interior-point solver at n = 10000. Against AlphaMate, a heuristic for the distinct problem of
-discrete mate allocation, the exact optimum is no worse at matched coancestry on
-the continuous relaxation the two share, at a small fraction of the run time. Across synthetic populations the
-optimal support stays 14–19 as n grows from
-1000 to 40000, while the dense **G** the alternatives must form reaches 11.9 GiB
-— a 40× larger footprint than **Z**, past the working memory of an 8–16 GB laptop
-— in a regime where support-first still solves in under 0.1 s. Support-first makes
-exact, reproducible optimum contribution
-selection practical at genomic scale on a laptop.
+We evaluate it on three real marker panels: a CIMMYT wheat panel (n = 599), a PIC
+pig panel (n = 3534, 52k SNP) and a heterogeneous-stock mouse panel (n = 1814, with
+real sex). It reaches the exact optimum on each, agreeing with the conic optimum to
+1e-8. At matched realised coancestry it agrees with the interior-point methods; where
+they halt just inside the constraint it reaches the boundary, so its small edge there
+is the diversity budget they leave unspent, not a different optimum.
+
+It is also fast. The shipped matrix-free solver, which forms no **G** at all, runs
+18×–182× faster end to end than optiSel; handed **G** as the interior-point tools
+require it, the active set alone reaches the same optimum up to ~2500× faster. Against
+a general conic solver at n = 10000 the factor is ~76000×, in a comparison that is
+Rust against Rust in one process and so carries no language confound. Against
+AlphaMate, a heuristic for the distinct problem of discrete mate allocation, the exact
+optimum is no worse at matched coancestry on the continuous relaxation the two share.
+
+The speed, though, is the lesser result. Because a solve costs the support and the
+marker count rather than the n×n matrix, the advantage widens exactly where the
+established tools stop. Across synthetic populations the optimal support stays 14–19
+as n grows from 1000 to 40000, and support-first still solves in under 0.1 s — while
+the dense **G** the alternatives must materialise reaches 11.9 GiB, a 40× larger
+footprint than **Z** and past the working memory of an 8–16 GB laptop. At that size
+the question is no longer how fast the established tools run, but whether they run at
+all. Support-first makes exact, reproducible optimum contribution selection practical
+at genomic scale, on a laptop.
 
 ## 2. Methods
 
