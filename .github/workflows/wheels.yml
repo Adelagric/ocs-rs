@@ -28,7 +28,10 @@ jobs:
           - { runner: ubuntu-latest, target: x86_64 }
           - { runner: ubuntu-latest, target: aarch64 }
           - { runner: macos-14, target: aarch64 }
-          - { runner: macos-13, target: x86_64 }
+          # Intel macOS is cross-compiled from Apple silicon: the macos-13 runners
+          # that could build it natively have been retired, and a job requesting one
+          # sits queued until it is cancelled.
+          - { runner: macos-14, target: x86_64 }
           - { runner: windows-latest, target: x64 }
     steps:
       - uses: actions/checkout@v4
