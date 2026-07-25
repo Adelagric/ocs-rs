@@ -75,6 +75,22 @@ sex equalities, but not yet several quadratic constraints at once — multiple
 relationship matrices, group-specific coancestry limits — nor the integer mate
 allocation that AlphaMate provides; it returns continuous contributions.
 
+One boundary of the study should be stated plainly, because it decides which claims
+are tested and which are not. This work was carried out without institutional data
+agreements, so every panel used is one any reader can download and every number in
+the paper is regenerable from public sources — a deliberate gain in reproducibility,
+and a real ceiling on scale. The largest real populations in animal breeding sit in
+national evaluation databases holding hundreds of thousands of genotyped animals, and
+those are access-controlled; the largest openly available cattle sequence resource
+holds a few thousand individuals, fewer than the pig panel used here. The scaling
+results at n = 10⁴–4×10⁴ are therefore synthetic by necessity rather than by
+preference. What they establish — that the dense relationship matrix becomes
+infeasible before the solver does — is a property of that matrix and does not depend
+on the genotypes being real. What they do not establish is the method running inside
+a production evaluation at that scale, and no public dataset can establish it. That
+comparison needs a breeding organisation or a national evaluation centre, and we
+would welcome it.
+
 Each limitation points to an extension. The closed-form-per-support core already
 admits more than one equality constraint through the same elimination
 P = A G⁻¹ Aᵀ; additional active quadratic caps turn the scalar root-finding into a
@@ -83,10 +99,10 @@ constraints are within reach. A rounding or branch-and-bound layer over the
 continuous optimum would add mate allocation while keeping the exact relaxation as
 a tight bound — combining support-first's exactness with the discrete plan that
 heuristics target directly. The matrix-free crossover in m versus n deserves an
-explicit characterisation, as does the support bound itself. And the method should
-be validated on datasets carrying true genomic breeding values and on populations
-an order of magnitude larger, where the memory gap of Figure 1B turns from visible
-into decisive.
+explicit characterisation, as does the support bound itself. The criterion question is
+now closed on one instance — a GBLUP-fitted GEBV on the sexed pig sub-panel changes
+nothing — so what remains is validation on populations an order of magnitude larger,
+where the memory gap of Figure 1B turns from visible into decisive.
 
 Support-first does one thing — exact, single-constraint, continuous optimum
 contribution selection — at a scale and speed that bring genomic OCS within reach
