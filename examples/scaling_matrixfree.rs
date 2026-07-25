@@ -46,15 +46,15 @@ fn main() {
         let male: Vec<bool> = (0..n).map(|i| i % 2 == 0).collect();
 
         // Matrix-free sexed solve: warm-up, then one timed release run.
-        let _ = solve_sexed(&d.z, d.s, ridge, &d.b, &male, k, 5000, 1e-7);
+        let _ = solve_sexed(d.z.as_ref(), d.s, ridge, &d.b, &male, k, 5000, 1e-7);
         let t = Instant::now();
-        let last = solve_sexed(&d.z, d.s, ridge, &d.b, &male, k, 5000, 1e-7);
+        let last = solve_sexed(d.z.as_ref(), d.s, ridge, &d.b, &male, k, 5000, 1e-7);
         let best = t.elapsed().as_secs_f64();
 
         // Dense G: build + time only where it fits comfortably in RAM.
         let g_build = if n <= build_ceiling {
             let t = Instant::now();
-            let g = Grm::build(&d.z, d.s, ridge);
+            let g = Grm::build(d.z.as_ref(), d.s, ridge);
             let secs = t.elapsed().as_secs_f64();
             std::hint::black_box(&g); // keep the build from being optimised away
             format!("{secs:.3}")

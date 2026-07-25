@@ -22,7 +22,7 @@ fn main() -> std::io::Result<()> {
     let (n, m, seed) = (2000usize, 10000usize, 20240618u64);
     let ridge = 1e-5;
     let d = datagen::generate(n, m, seed);
-    let g = Grm::build(&d.z, d.s, ridge);
+    let g = Grm::build(d.z.as_ref(), d.s, ridge);
     let mean_diag: f64 = (0..n).map(|i| g.g[(i, i)]).sum::<f64>() / n as f64;
     // Alternating sexes (a balanced split; the value of `b` decides the optimum).
     let male: Vec<bool> = (0..n).map(|i| i % 2 == 0).collect();
@@ -34,11 +34,11 @@ fn main() -> std::io::Result<()> {
     let mut export: Option<(f64, _)> = None;
     for &frac in &[0.6_f64, 0.3, 0.15, 0.08] {
         let k = frac * mean_diag;
-        let mut last = solve_sexed(&d.z, d.s, ridge, &d.b, &male, k, 5000, 1e-7); // warm
+        let mut last = solve_sexed(d.z.as_ref(), d.s, ridge, &d.b, &male, k, 5000, 1e-7); // warm
         let mut times = Vec::with_capacity(5);
         for _ in 0..5 {
             let t = Instant::now();
-            last = solve_sexed(&d.z, d.s, ridge, &d.b, &male, k, 5000, 1e-7);
+            last = solve_sexed(d.z.as_ref(), d.s, ridge, &d.b, &male, k, 5000, 1e-7);
             times.push(t.elapsed().as_secs_f64());
         }
         times.sort_by(f64::total_cmp);

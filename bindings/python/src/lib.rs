@@ -98,7 +98,7 @@ fn solve<'py>(
 ) -> PyResult<Bound<'py, PyDict>> {
     check_len("b", b.len(), n)?;
     let zm = mat_from_bytes(z, n, m)?;
-    let out = py.detach(|| support_first::solve(&zm, s, ridge, &b, k, max_iter, tol));
+    let out = py.detach(|| support_first::solve(zm.as_ref(), s, ridge, &b, k, max_iter, tol));
     to_dict(py, out)
 }
 
@@ -122,7 +122,8 @@ fn solve_sexed<'py>(
     check_len("b", b.len(), n)?;
     check_len("male", male.len(), n)?;
     let zm = mat_from_bytes(z, n, m)?;
-    let out = py.detach(|| support_first::solve_sexed(&zm, s, ridge, &b, &male, k, max_iter, tol));
+    let out = py
+        .detach(|| support_first::solve_sexed(zm.as_ref(), s, ridge, &b, &male, k, max_iter, tol));
     to_dict(py, out)
 }
 
@@ -146,7 +147,8 @@ fn solve_capped<'py>(
     check_len("b", b.len(), n)?;
     check_len("caps", caps.len(), n)?;
     let zm = mat_from_bytes(z, n, m)?;
-    let out = py.detach(|| support_first::solve_capped(&zm, s, ridge, &b, &caps, k, max_iter, tol));
+    let out = py
+        .detach(|| support_first::solve_capped(zm.as_ref(), s, ridge, &b, &caps, k, max_iter, tol));
     to_dict(py, out)
 }
 
@@ -173,7 +175,7 @@ fn solve_sexed_capped<'py>(
     check_len("caps", caps.len(), n)?;
     let zm = mat_from_bytes(z, n, m)?;
     let out = py.detach(|| {
-        support_first::solve_sexed_capped(&zm, s, ridge, &b, &male, &caps, k, max_iter, tol)
+        support_first::solve_sexed_capped(zm.as_ref(), s, ridge, &b, &male, &caps, k, max_iter, tol)
     });
     to_dict(py, out)
 }

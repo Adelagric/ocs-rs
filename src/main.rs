@@ -106,12 +106,14 @@ fn real_main() -> i32 {
 fn cmd_correctness(n: usize, m: usize, seed: u64, k_frac: f64) -> Result<(), i32> {
     eprintln!("[correctness] n={n} m={m} seed={seed}");
     let ds = datagen::generate(n, m, seed);
-    let (grm, l, tries) = grm::build_and_factor(&ds.z, ds.s, INITIAL_RIDGE, MAX_RIDGE_TRIES)
-        .map_err(|e| {
-            eprintln!("[correctness] factorization failed: {e}");
-            1
-        })?;
-    let k = k_frac * mean_diag(&ds.z, ds.s);
+    let (grm, l, tries) =
+        grm::build_and_factor(ds.z.as_ref(), ds.s, INITIAL_RIDGE, MAX_RIDGE_TRIES).map_err(
+            |e| {
+                eprintln!("[correctness] factorization failed: {e}");
+                1
+            },
+        )?;
+    let k = k_frac * mean_diag(ds.z.as_ref(), ds.s);
     let prob = socp::build(Factor::Cholesky(&l), &ds.b, k, ds.s, None);
     let out = solve::solve(&prob, SolveConfig::default()).map_err(|e| {
         eprintln!("[correctness] solve error: {e}");
@@ -168,11 +170,13 @@ fn cmd_correctness(n: usize, m: usize, seed: u64, k_frac: f64) -> Result<(), i32
 fn cmd_frontier(n: usize, m: usize, seed: u64, points: usize) -> Result<(), i32> {
     eprintln!("[frontier] n={n} m={m} seed={seed} points={points}");
     let ds = datagen::generate(n, m, seed);
-    let (grm, l, _tries) = grm::build_and_factor(&ds.z, ds.s, INITIAL_RIDGE, MAX_RIDGE_TRIES)
-        .map_err(|e| {
-            eprintln!("[frontier] factorization failed: {e}");
-            1
-        })?;
+    let (grm, l, _tries) =
+        grm::build_and_factor(ds.z.as_ref(), ds.s, INITIAL_RIDGE, MAX_RIDGE_TRIES).map_err(
+            |e| {
+                eprintln!("[frontier] factorization failed: {e}");
+                1
+            },
+        )?;
 
     // k range: from just above the uniform-contribution kinship (always
     // feasible) up past the gain-greedy vertex kinship (constraint inactive).
@@ -371,10 +375,10 @@ fn cmd_report() -> Result<(), i32> {
 fn cmd_compare(n: usize, m: usize, seed: u64, k_frac: f64) -> Result<(), i32> {
     eprintln!("[compare] n={n} m={m} seed={seed}");
     let (ds, t_datagen) = timed(|| datagen::generate(n, m, seed));
-    let k = k_frac * mean_diag(&ds.z, ds.s);
+    let k = k_frac * mean_diag(ds.z.as_ref(), ds.s);
 
     // --- Clarabel, Route A (the path the spike validated) ---
-    let (grm, t_grm) = timed(|| grm::Grm::build(&ds.z, ds.s, INITIAL_RIDGE));
+    let (grm, t_grm) = timed(|| grm::Grm::build(ds.z.as_ref(), ds.s, INITIAL_RIDGE));
     let (l_res, t_chol) = timed(|| grm.cholesky_lower());
     let l = l_res.map_err(|e| {
         eprintln!("[compare] cholesky: {e}");
@@ -391,7 +395,7 @@ fn cmd_compare(n: usize, m: usize, seed: u64, k_frac: f64) -> Result<(), i32> {
 
     // --- support-first (no GRM, no Cholesky; matrix-free over Z) ---
     let (sf, t_sf) =
-        timed(|| support_first::solve(&ds.z, ds.s, INITIAL_RIDGE, &ds.b, k, 4000, 1e-7));
+        timed(|| support_first::solve(ds.z.as_ref(), ds.s, INITIAL_RIDGE, &ds.b, k, 4000, 1e-7));
 
     let gain_match = (sf.gain - clar.gain).abs();
     let speedup_solve = if t_sf > 0.0 {
@@ -457,7 +461,7 @@ fn solve_one(
     cfg: SolveConfig,
 ) -> ScalingRecord {
     let (ds, t_datagen) = timed(|| datagen::generate(n, m, seed));
-    let k = k_frac * mean_diag(&ds.z, ds.s);
+    let k = k_frac * mean_diag(ds.z.as_ref(), ds.s);
 
     let dense_work_gb = match route {
         Route::Cholesky => 8.0 * (n as f64 * m as f64 + 2.0 * n as f64 * n as f64) / 1e9,
@@ -466,7 +470,7 @@ fn solve_one(
 
     match route {
         Route::Cholesky => {
-            let (grm, t_grm) = timed(|| grm::Grm::build(&ds.z, ds.s, INITIAL_RIDGE));
+            let (grm, t_grm) = timed(|| grm::Grm::build(ds.z.as_ref(), ds.s, INITIAL_RIDGE));
             // Factor with ridge escalation; escalation cost belongs to
             // "obtaining a usable factor".
             let t0 = Instant::now();
@@ -479,7 +483,7 @@ fn solve_one(
                     Err(_) if tries < MAX_RIDGE_TRIES => {
                         tries += 1;
                         ridge *= 10.0;
-                        grm = grm::Grm::build(&ds.z, ds.s, ridge);
+                        grm = grm::Grm::build(ds.z.as_ref(), ds.s, ridge);
                     }
                     Err(_) => break None,
                 }
@@ -531,7 +535,7 @@ fn solve_one(
                 },
                 prob,
                 cfg,
-                |c| grm::quad_form_z(&ds.z, ds.s, c),
+                |c| grm::quad_form_z(ds.z.as_ref(), ds.s, c),
             )
         }
     }
@@ -734,7 +738,7 @@ fn parse_peak_rss_mb(time_stderr: &str) -> Option<f64> {
 
 /// Mean genomic self-relationship `(1/n) Σ_i (Σ_j Z[i,j]²)/s`, i.e. the mean of
 /// the GRM diagonal, computed without forming G.
-fn mean_diag(z: &faer::Mat<f64>, s: f64) -> f64 {
+fn mean_diag(z: faer::MatRef<'_, f64>, s: f64) -> f64 {
     let n = z.nrows();
     let m = z.ncols();
     let mut acc = 0.0;

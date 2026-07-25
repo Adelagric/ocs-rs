@@ -24,7 +24,7 @@
 //! the two solvers are compared on the same constraint.
 
 use faer::linalg::solvers::Solve;
-use faer::{Mat, Side};
+use faer::{Mat, MatRef, Side};
 
 /// Terminal status of the active-set loop.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,7 +59,7 @@ pub struct SupportFirstOutcome {
 }
 
 /// `G·c = ridge·c + Z(Zᵀc)/s`, never forming `G`. Cost `O(n·m)`.
-fn g_matvec(z: &Mat<f64>, s: f64, ridge: f64, c: &[f64]) -> Vec<f64> {
+fn g_matvec(z: MatRef<'_, f64>, s: f64, ridge: f64, c: &[f64]) -> Vec<f64> {
     let n = z.nrows();
     let m = z.ncols();
     let inv_s = 1.0 / s;
@@ -128,7 +128,7 @@ impl GramCache {
     /// Bring the cache in line with `support`, extending it when `support` is an
     /// extension of what is held and rebuilding otherwise (a drop reorders the set,
     /// and drops are rare enough that rebuilding beats tracking them).
-    fn sync(&mut self, z: &Mat<f64>, s: f64, ridge: f64, support: &[usize]) {
+    fn sync(&mut self, z: MatRef<'_, f64>, s: f64, ridge: f64, support: &[usize]) {
         if !support.starts_with(&self.held) {
             self.held.clear();
             self.zs.clear();
@@ -143,7 +143,7 @@ impl GramCache {
         &self.gram
     }
 
-    fn append(&mut self, z: &Mat<f64>, s: f64, ridge: f64, i: usize) {
+    fn append(&mut self, z: MatRef<'_, f64>, s: f64, ridge: f64, i: usize) {
         let m = z.ncols();
         self.zs.reserve(m);
         for l in 0..m {
@@ -248,7 +248,7 @@ fn argmax(v: &[f64]) -> usize {
 /// `z` centred genotypes (`n×m`), `s` VanRaden scale, `ridge` ε, `b` GEBV, `k`
 /// kinship bound. The kinship enforced is `cᵀ(G+εI)c ≤ k` (same as Clarabel).
 pub fn solve(
-    z: &Mat<f64>,
+    z: MatRef<'_, f64>,
     s: f64,
     ridge: f64,
     b: &[f64],
@@ -496,7 +496,7 @@ fn closed_form_sexed(
 /// sex-specific multiplier `μ_{sex(j)}`.
 #[allow(clippy::too_many_arguments)]
 pub fn solve_sexed(
-    z: &Mat<f64>,
+    z: MatRef<'_, f64>,
     s: f64,
     ridge: f64,
     b: &[f64],
@@ -720,7 +720,7 @@ fn closed_form_capped(
 /// satisfy `Σ caps ≥ 1` (else the simplex is infeasible).
 #[allow(clippy::too_many_arguments)]
 pub fn solve_capped(
-    z: &Mat<f64>,
+    z: MatRef<'_, f64>,
     s: f64,
     ridge: f64,
     b: &[f64],
@@ -1008,7 +1008,7 @@ fn closed_form_sexed_capped(
 /// candidates pinned at the cap) is re-seeded with its best uncapped individual.
 #[allow(clippy::too_many_arguments)]
 pub fn solve_sexed_capped(
-    z: &Mat<f64>,
+    z: MatRef<'_, f64>,
     s: f64,
     ridge: f64,
     b: &[f64],
@@ -1244,7 +1244,7 @@ mod tests {
         // IPM on the same data.
         let d = datagen::generate(60, 2000, 20240617);
         let ridge = 1e-5;
-        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let grm = grm::Grm::build(d.z.as_ref(), d.s, ridge);
         let l = grm.cholesky_lower().unwrap();
         let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
         let k = 0.6 * mean_diag;
@@ -1252,7 +1252,7 @@ mod tests {
         let prob = socp::build(Factor::Cholesky(&l), &d.b, k, d.s, None);
         let clar = conic::solve(&prob, conic::SolveConfig::default()).unwrap();
 
-        let sf = solve(&d.z, d.s, ridge, &d.b, k, 500, 1e-7);
+        let sf = solve(d.z.as_ref(), d.s, ridge, &d.b, k, 500, 1e-7);
 
         assert_eq!(sf.status, SfStatus::Solved);
         assert!(
@@ -1274,11 +1274,11 @@ mod tests {
         // allowed (degenerate), but must never be reported as `Solved`.
         let d = datagen::generate(50, 1000, 11);
         let ridge = 1e-5;
-        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let grm = grm::Grm::build(d.z.as_ref(), d.s, ridge);
         let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
         for frac in [0.03, 0.1, 0.3, 0.6, 0.9] {
             let k = frac * mean_diag;
-            let sf = solve(&d.z, d.s, ridge, &d.b, k, 2000, 1e-7);
+            let sf = solve(d.z.as_ref(), d.s, ridge, &d.b, k, 2000, 1e-7);
             if sf.status == SfStatus::Solved {
                 assert!(
                     sf.quad <= k + 1e-6,
@@ -1340,12 +1340,12 @@ mod tests {
         // simplex, split ½/½ by sex, and non-negative.
         let d = datagen::generate(60, 2000, 7);
         let ridge = 1e-5;
-        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let grm = grm::Grm::build(d.z.as_ref(), d.s, ridge);
         let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
         let k = 0.5 * mean_diag;
         let male: Vec<bool> = (0..d.n).map(|i| i % 2 == 0).collect();
 
-        let sf = solve_sexed(&d.z, d.s, ridge, &d.b, &male, k, 1000, 1e-7);
+        let sf = solve_sexed(d.z.as_ref(), d.s, ridge, &d.b, &male, k, 1000, 1e-7);
         assert_eq!(sf.status, SfStatus::Solved);
         assert!(sf.quad <= k + 1e-6, "kinship {} > k {}", sf.quad, k);
         assert!(sf.c.iter().all(|&c| c >= -1e-7));
@@ -1361,12 +1361,12 @@ mod tests {
         // loose k, a `Solved` result is always feasible and correctly sex-split.
         let d = datagen::generate(50, 1000, 11);
         let ridge = 1e-5;
-        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let grm = grm::Grm::build(d.z.as_ref(), d.s, ridge);
         let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
         let male: Vec<bool> = (0..d.n).map(|i| i % 2 == 0).collect();
         for frac in [0.05, 0.1, 0.3, 0.6, 0.9] {
             let k = frac * mean_diag;
-            let sf = solve_sexed(&d.z, d.s, ridge, &d.b, &male, k, 2000, 1e-7);
+            let sf = solve_sexed(d.z.as_ref(), d.s, ridge, &d.b, &male, k, 2000, 1e-7);
             if sf.status == SfStatus::Solved {
                 assert!(sf.quad <= k + 1e-6, "Solved infeasible at frac={frac}");
                 let sum_m: f64 = (0..d.n).filter(|&i| male[i]).map(|i| sf.c[i]).sum();
@@ -1403,7 +1403,7 @@ mod tests {
         // reach the same optimum as Clarabel solving the same c ≤ u cone problem.
         let d = datagen::generate(60, 2000, 20240617);
         let ridge = 1e-5;
-        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let grm = grm::Grm::build(d.z.as_ref(), d.s, ridge);
         let l = grm.cholesky_lower().unwrap();
         let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
         let k = 0.6 * mean_diag;
@@ -1411,7 +1411,7 @@ mod tests {
 
         let prob = socp::build(Factor::Cholesky(&l), &d.b, k, d.s, Some(&caps));
         let clar = conic::solve(&prob, conic::SolveConfig::default()).unwrap();
-        let sf = solve_capped(&d.z, d.s, ridge, &d.b, &caps, k, 4000, 1e-7);
+        let sf = solve_capped(d.z.as_ref(), d.s, ridge, &d.b, &caps, k, 4000, 1e-7);
 
         assert_eq!(sf.status, SfStatus::Solved);
         assert!(
@@ -1438,14 +1438,14 @@ mod tests {
         // unbounded sexed solve (itself cross-checked against Clarabel elsewhere).
         let d = datagen::generate(60, 2000, 7);
         let ridge = 1e-5;
-        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let grm = grm::Grm::build(d.z.as_ref(), d.s, ridge);
         let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
         let k = 0.5 * mean_diag;
         let male: Vec<bool> = (0..d.n).map(|i| i % 2 == 0).collect();
         let caps = vec![1.0_f64; d.n];
 
-        let unb = solve_sexed(&d.z, d.s, ridge, &d.b, &male, k, 1000, 1e-7);
-        let cap = solve_sexed_capped(&d.z, d.s, ridge, &d.b, &male, &caps, k, 1000, 1e-7);
+        let unb = solve_sexed(d.z.as_ref(), d.s, ridge, &d.b, &male, k, 1000, 1e-7);
+        let cap = solve_sexed_capped(d.z.as_ref(), d.s, ridge, &d.b, &male, &caps, k, 1000, 1e-7);
         assert_eq!(unb.status, SfStatus::Solved);
         assert_eq!(cap.status, SfStatus::Solved);
         assert!(
@@ -1465,13 +1465,13 @@ mod tests {
         // kinship-feasible, and no better than the unbounded optimum.
         let d = datagen::generate(60, 2000, 7);
         let ridge = 1e-5;
-        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let grm = grm::Grm::build(d.z.as_ref(), d.s, ridge);
         let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
         let k = 0.5 * mean_diag;
         let male: Vec<bool> = (0..d.n).map(|i| i % 2 == 0).collect();
         let caps = vec![0.05_f64; d.n]; // each sex (½) needs ≥ 10 contributors
 
-        let sf = solve_sexed_capped(&d.z, d.s, ridge, &d.b, &male, &caps, k, 4000, 1e-7);
+        let sf = solve_sexed_capped(d.z.as_ref(), d.s, ridge, &d.b, &male, &caps, k, 4000, 1e-7);
         assert_eq!(sf.status, SfStatus::Solved);
         assert!(sf.quad <= k + 1e-6, "kinship {} > k {}", sf.quad, k);
         assert!(sf.c.iter().all(|&c| c >= -1e-7));
@@ -1485,7 +1485,7 @@ mod tests {
             (sum_m - 0.5).abs() < 1e-6 && (sum_f - 0.5).abs() < 1e-6,
             "sex split"
         );
-        let unb = solve_sexed(&d.z, d.s, ridge, &d.b, &male, k, 2000, 1e-7);
+        let unb = solve_sexed(d.z.as_ref(), d.s, ridge, &d.b, &male, k, 2000, 1e-7);
         assert!(
             sf.gain <= unb.gain + 1e-9,
             "capped gain {} exceeds unbounded {}",
@@ -1501,7 +1501,7 @@ mod tests {
         // still return a feasible, sex-split optimum, not stall.
         let d = datagen::generate(45, 1500, 3);
         let ridge = 1e-5;
-        let grm = grm::Grm::build(&d.z, d.s, ridge);
+        let grm = grm::Grm::build(d.z.as_ref(), d.s, ridge);
         let mean_diag: f64 = (0..d.n).map(|i| grm.g[(i, i)]).sum::<f64>() / d.n as f64;
         let k = 0.6 * mean_diag;
         let male: Vec<bool> = (0..d.n).map(|i| i >= 5).collect(); // indices 0..5 female
@@ -1510,7 +1510,7 @@ mod tests {
             *c = 0.1; // 5 females × 0.1 = ½ ⇒ all females forced to their cap
         }
 
-        let sf = solve_sexed_capped(&d.z, d.s, ridge, &d.b, &male, &caps, k, 4000, 1e-7);
+        let sf = solve_sexed_capped(d.z.as_ref(), d.s, ridge, &d.b, &male, &caps, k, 4000, 1e-7);
         assert_eq!(
             sf.status,
             SfStatus::Solved,

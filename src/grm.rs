@@ -6,7 +6,7 @@
 //! ([`quad_form`]), avoiding a second `n×n` allocation at scale.
 
 use crate::error::OcsError;
-use faer::{Mat, Side};
+use faer::{Mat, MatRef, Side};
 
 /// A ridged genomic relationship matrix.
 pub struct Grm {
@@ -24,7 +24,7 @@ impl Grm {
     /// Computed in place: the `Z Zᵀ` GEMM result is scaled by `1/s` and the
     /// ridge is added to its diagonal, so no extra `n×n` buffer is allocated
     /// beyond the GEMM output itself.
-    pub fn build(z: &Mat<f64>, s: f64, ridge: f64) -> Grm {
+    pub fn build(z: MatRef<'_, f64>, s: f64, ridge: f64) -> Grm {
         let n = z.nrows();
         let mut g = z * z.transpose(); // n×n, symmetric PSD
         let inv_s = 1.0 / s;
@@ -73,7 +73,7 @@ impl Grm {
 /// (carrying the ridge that finally worked), its lower factor `L`, and the
 /// number of escalations performed (0 = first ridge sufficed).
 pub fn build_and_factor(
-    z: &Mat<f64>,
+    z: MatRef<'_, f64>,
     s: f64,
     initial_ridge: f64,
     max_tries: u32,
@@ -116,7 +116,7 @@ pub fn quad_form(grm: &Grm, c: &[f64]) -> f64 {
 
 /// True quadratic form via the raw factor: `cᵀG c = ‖Zᵀc‖² / s` (Route B), with
 /// no `G` ever formed. `y_i = (Zᵀc)_i = Σ_k Z[k,i] c[k]`.
-pub fn quad_form_z(z: &Mat<f64>, s: f64, c: &[f64]) -> f64 {
+pub fn quad_form_z(z: MatRef<'_, f64>, s: f64, c: &[f64]) -> f64 {
     let m = z.ncols();
     debug_assert_eq!(c.len(), z.nrows());
     let mut acc = 0.0;
@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn grm_is_symmetric() {
         let d = datagen::generate(40, 200, 11);
-        let grm = Grm::build(&d.z, d.s, 1e-5);
+        let grm = Grm::build(d.z.as_ref(), d.s, 1e-5);
         for i in 0..40 {
             for j in 0..40 {
                 assert!((grm.g[(i, j)] - grm.g[(j, i)]).abs() < 1e-9);
@@ -150,7 +150,7 @@ mod tests {
     fn grm_diagonal_near_one() {
         // VanRaden self-relationships scatter around 1.
         let d = datagen::generate(50, 5000, 3);
-        let grm = Grm::build(&d.z, d.s, 1e-5);
+        let grm = Grm::build(d.z.as_ref(), d.s, 1e-5);
         let mean_diag: f64 = (0..50).map(|i| grm.g[(i, i)]).sum::<f64>() / 50.0;
         assert!(
             (mean_diag - 1.0).abs() < 0.15,
@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn cholesky_reconstructs_g() {
         let d = datagen::generate(30, 300, 21);
-        let grm = Grm::build(&d.z, d.s, 1e-5);
+        let grm = Grm::build(d.z.as_ref(), d.s, 1e-5);
         let l = grm.cholesky_lower().unwrap();
         // L Lᵀ must equal the ridged G on the lower triangle.
         for i in 0..30 {
@@ -179,10 +179,10 @@ mod tests {
     fn quad_form_routes_agree() {
         // cᵀG c computed via the ridged G (minus ridge) and via Z must match.
         let d = datagen::generate(60, 400, 8);
-        let grm = Grm::build(&d.z, d.s, 1e-5);
+        let grm = Grm::build(d.z.as_ref(), d.s, 1e-5);
         let c: Vec<f64> = (0..60).map(|i| ((i % 7) as f64 + 1.0) / 100.0).collect();
         let via_g = quad_form(&grm, &c);
-        let via_z = quad_form_z(&d.z, d.s, &c);
+        let via_z = quad_form_z(d.z.as_ref(), d.s, &c);
         assert!(
             (via_g - via_z).abs() < 1e-7,
             "G route {via_g} vs Z route {via_z}"
@@ -198,13 +198,13 @@ mod tests {
         // numerically PD — so the guarantee tested is *recovery*, not a fixed
         // escalation count.)
         let d = datagen::generate(80, 20, 4);
-        let zero_ridge = Grm::build(&d.z, d.s, 0.0);
+        let zero_ridge = Grm::build(d.z.as_ref(), d.s, 0.0);
         assert!(
             zero_ridge.cholesky_lower().is_err(),
             "rank-deficient G must fail Cholesky at ridge 0"
         );
 
-        let (grm, l, tries) = build_and_factor(&d.z, d.s, 1e-6, 12).unwrap();
+        let (grm, l, tries) = build_and_factor(d.z.as_ref(), d.s, 1e-6, 12).unwrap();
         assert!(grm.ridge > 0.0);
         // Bookkeeping: zero escalations ⟺ the initial ridge was kept.
         if tries == 0 {

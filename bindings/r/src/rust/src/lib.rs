@@ -21,33 +21,31 @@ use extendr_api::prelude::*;
 // `Result` is not in extendr's prelude, so the glob above leaves std's in scope; this
 // explicit import is what makes `Result<List>` mean "or an R error".
 use extendr_api::Result;
-use faer::Mat;
+use faer::MatRef;
 use ocs_rs::support_first::{self, SfStatus, SupportFirstOutcome};
 
-/// Rebuild the n×m genotype matrix from R's column-major vector.
-fn mat_from_col_major(z: &[f64], n: usize, m: usize) -> Result<Mat<f64>> {
-    let want = n
-        .checked_mul(m)
-        .ok_or_else(|| Error::Other("n * m overflows".to_string()))?;
-    if z.len() != want {
-        return Err(Error::Other(format!(
-            "genotype matrix has {} entries, expected n * m = {want}",
-            z.len()
-        )));
-    }
-    Ok(Mat::from_fn(n, m, |i, j| z[j * n + i]))
-}
-
-/// Borrow the genotypes from R's numeric buffer (no copy) and gather them into faer.
+/// View R's numeric buffer as the genotype matrix, without copying a single element.
 ///
+/// R stores matrices column-major and so does faer, so the buffer *is* already the
+/// matrix: `MatRef::from_column_major_slice` reinterprets it in place. Nothing is
+/// allocated and nothing is moved — on a 52k-marker panel that is 1.5 GB not copied.
 /// `as_real_slice` yields `None` unless the object is a real (double) vector/matrix;
 /// the R wrapper coerces to double, so this rejects only a genuine type error rather
-/// than silently copying.
-fn mat_from_robj(z: &Robj, n: usize, m: usize) -> Result<Mat<f64>> {
+/// than silently falling back to a copy.
+fn view_from_robj<'a>(z: &'a Robj, n: usize, m: usize) -> Result<MatRef<'a, f64>> {
     let zs = z
         .as_real_slice()
         .ok_or_else(|| Error::Other("genotypes must be a numeric (double) matrix".to_string()))?;
-    mat_from_col_major(zs, n, m)
+    let want = n
+        .checked_mul(m)
+        .ok_or_else(|| Error::Other("n * m overflows".to_string()))?;
+    if zs.len() != want {
+        return Err(Error::Other(format!(
+            "genotype matrix has {} entries, expected n * m = {want}",
+            zs.len()
+        )));
+    }
+    Ok(MatRef::from_column_major_slice(zs, n, m))
 }
 
 fn check_len(name: &str, got: usize, want: usize) -> Result<()> {
@@ -96,9 +94,9 @@ fn sf_solve(
 ) -> Result<List> {
     let (n, m) = (n as usize, m as usize);
     check_len("b", b.len(), n)?;
-    let zm = mat_from_robj(&z, n, m)?;
+    let zm = view_from_robj(&z, n, m)?;
     Ok(to_list(support_first::solve(
-        &zm,
+        zm,
         s,
         ridge,
         &b,
@@ -126,9 +124,9 @@ fn sf_solve_sexed(
     let (n, m) = (n as usize, m as usize);
     check_len("b", b.len(), n)?;
     check_len("male", male.len(), n)?;
-    let zm = mat_from_robj(&z, n, m)?;
+    let zm = view_from_robj(&z, n, m)?;
     Ok(to_list(support_first::solve_sexed(
-        &zm,
+        zm,
         s,
         ridge,
         &b,
@@ -157,9 +155,9 @@ fn sf_solve_capped(
     let (n, m) = (n as usize, m as usize);
     check_len("b", b.len(), n)?;
     check_len("caps", caps.len(), n)?;
-    let zm = mat_from_robj(&z, n, m)?;
+    let zm = view_from_robj(&z, n, m)?;
     Ok(to_list(support_first::solve_capped(
-        &zm,
+        zm,
         s,
         ridge,
         &b,
@@ -190,9 +188,9 @@ fn sf_solve_sexed_capped(
     check_len("b", b.len(), n)?;
     check_len("male", male.len(), n)?;
     check_len("caps", caps.len(), n)?;
-    let zm = mat_from_robj(&z, n, m)?;
+    let zm = view_from_robj(&z, n, m)?;
     Ok(to_list(support_first::solve_sexed_capped(
-        &zm,
+        zm,
         s,
         ridge,
         &b,

@@ -158,8 +158,10 @@ res <- ocs_solve(panel$Z, b = ebv, k = 0.03, s = panel$s, male = sex == "male")
 res$support                                        # 1-based, as R users expect
 ```
 
-Matrices are read in R's own column-major layout, so neither side transposes, and
-supports come back 1-based — the two conventions that would otherwise fail silently
+R stores matrices column-major and so does the solver's linear algebra, so the
+genotype matrix is not copied at all: the Rust side views R's own buffer in place
+(1.5 GB left where it is, on a 52k-marker panel). Supports come back 1-based — that
+and the layout are the two conventions that would otherwise fail silently, and both
 are covered by tests that recompute the answer with R's own arithmetic.
 [`research/repro/r_binding_optisel.R`](research/repro/r_binding_optisel.R) runs
 support-first and optiSel in one session on one instance with the conventions
