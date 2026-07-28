@@ -19,16 +19,19 @@ lets it solve instances whose dense matrix (≈12 GiB at n = 40 000) will not fi
 memory, and why the cost follows the (tiny) active support and the marker count
 rather than n².
 
-On real marker panels it reaches the same optimum as optiSel 90–2280× faster.
+On real marker panels it reaches the same optimum as optiSel 12–180× faster end to
+end (and, handed the relationship matrix as the interior-point tools require it, the
+active set alone up to ~2500× faster).
 
 ## Install
 
 ```sh
-pip install maturin
-maturin develop --release        # from bindings/python/ in the repository
+pip install ocs-rs
 ```
 
-(A PyPI release will follow; for now build from source.)
+Wheels ship for Linux (x86_64, aarch64), macOS (Intel, Apple silicon) and Windows,
+`abi3` for Python 3.9+. To build from a checkout instead: `pip install maturin` then
+`maturin develop --release` from `bindings/python/`.
 
 ## Quickstart
 

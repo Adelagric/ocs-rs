@@ -123,8 +123,7 @@ The people who run OCS work in R and Python, not Rust — so the solver is calla
 from Python, numpy in and numpy out:
 
 ```sh
-pip install maturin
-cd bindings/python && maturin develop --release
+pip install ocs-rs
 ```
 
 ```python
@@ -133,16 +132,17 @@ res = ocs_rs.solve(Z, b, k=0.03, s=s, male=male)   # Z: (n, m) centred genotypes
 res.support, res.gain            # the handful of selected candidates, and the gain
 ```
 
-Details in [`bindings/python/README.md`](bindings/python/README.md). The bindings sit in
-their own crate, so the core keeps the pure-Rust dependency surface above; the wheel is
-`abi3`, so one build serves future interpreters. Correctness is checked against an
-independent optimiser (SciPy SLSQP), not just against the Rust solver.
+Wheels are published for Linux (x86_64, aarch64), macOS (Intel, Apple silicon) and
+Windows; they are `abi3`, so one wheel per platform serves Python 3.9 onward. To build
+from a checkout instead — the current `main`, or to hack on the bindings — use
+`pip install maturin` then `cd bindings/python && maturin develop --release`.
 
-[`.github/workflows/wheels.yml`](.github/workflows/wheels.yml) builds wheels for
-Linux (x86_64, aarch64), macOS (Intel, Apple silicon) and Windows plus an sdist, and
-publishes them on a `v*` tag through PyPI Trusted Publishing — an OIDC exchange, so no
-API token is stored in the repository. Until the first tag is pushed,
-`pip install ocs-rs` does not resolve; build from source as above.
+Details in [`bindings/python/README.md`](bindings/python/README.md). The bindings sit in
+their own crate, so the core keeps the pure-Rust dependency surface above. Correctness
+is checked against an independent optimiser (SciPy SLSQP), not just against the Rust
+solver. [`.github/workflows/wheels.yml`](.github/workflows/wheels.yml) builds every
+wheel and publishes on a `v*` tag through PyPI Trusted Publishing — an OIDC exchange,
+so no API token is stored in the repository.
 
 ## R
 
