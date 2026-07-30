@@ -26,6 +26,8 @@
 use faer::linalg::solvers::Solve;
 use faer::{Mat, MatRef, Side};
 
+use crate::packed::{Kinship, PackedGeno};
+
 /// Terminal status of the active-set loop.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SfStatus {
@@ -105,14 +107,35 @@ fn g_matvec(z: MatRef<'_, f64>, s: f64, ridge: f64, c: &[f64]) -> Vec<f64> {
 /// every later dot product into a contiguous scan. That is the larger half of the win
 /// on a wide panel, where `m` is big enough that the strided reads miss.
 ///
-/// The buffer holds `|S| × m` values, which the whole design assumes is a handful of
-/// rows; a support that grew to a large fraction of `n` would make this a second copy
-/// of `Z`, and that regime is already outside what support-first is for.
+/// A dense `f64` genotype matrix as a [`Kinship`] operator: the reference path,
+/// reusing the free `g_matvec` and the plain centred dot for a Gram entry.
+struct DenseZ<'a> {
+    z: MatRef<'a, f64>,
+    s: f64,
+}
+
+impl Kinship for DenseZ<'_> {
+    fn dim(&self) -> usize {
+        self.z.nrows()
+    }
+    fn matvec(&self, c: &[f64], ridge: f64) -> Vec<f64> {
+        g_matvec(self.z, self.s, ridge, c)
+    }
+    fn gram(&self, i: usize, j: usize, ridge: f64) -> f64 {
+        let m = self.z.ncols();
+        // `l` ascending, exactly as the from-scratch build summed it.
+        let acc: f64 = (0..m).map(|l| self.z[(i, l)] * self.z[(j, l)]).sum();
+        acc / self.s + if i == j { ridge } else { 0.0 }
+    }
+}
+
+/// Caches the restricted Gram `G_SS` on the current support, extending it by one row
+/// and column when the support grows (the common case) rather than rebuilding. The
+/// entries come from the [`Kinship`] operator, so the same cache serves the dense and
+/// the 2-bit packed representations.
 struct GramCache {
     /// The support this cache currently describes, in order.
     held: Vec<usize>,
-    /// `held.len() × m`, row-major: row `a` is `Z[held[a], ..]`.
-    zs: Vec<f64>,
     gram: Mat<f64>,
 }
 
@@ -120,7 +143,6 @@ impl GramCache {
     fn new() -> Self {
         Self {
             held: Vec::new(),
-            zs: Vec::new(),
             gram: Mat::zeros(0, 0),
         }
     }
@@ -128,14 +150,13 @@ impl GramCache {
     /// Bring the cache in line with `support`, extending it when `support` is an
     /// extension of what is held and rebuilding otherwise (a drop reorders the set,
     /// and drops are rare enough that rebuilding beats tracking them).
-    fn sync(&mut self, z: MatRef<'_, f64>, s: f64, ridge: f64, support: &[usize]) {
+    fn sync(&mut self, kin: &dyn Kinship, ridge: f64, support: &[usize]) {
         if !support.starts_with(&self.held) {
             self.held.clear();
-            self.zs.clear();
             self.gram = Mat::zeros(0, 0);
         }
         for &i in &support[self.held.len()..] {
-            self.append(z, s, ridge, i);
+            self.append(kin, ridge, i);
         }
     }
 
@@ -143,18 +164,10 @@ impl GramCache {
         &self.gram
     }
 
-    fn append(&mut self, z: MatRef<'_, f64>, s: f64, ridge: f64, i: usize) {
-        let m = z.ncols();
-        self.zs.reserve(m);
-        for l in 0..m {
-            self.zs.push(z[(i, l)]);
-        }
+    fn append(&mut self, kin: &dyn Kinship, ridge: f64, i: usize) {
         let ns = self.held.len() + 1;
-        let inv_s = 1.0 / s;
-        let new = &self.zs[(ns - 1) * m..ns * m];
-
-        // Summation runs over `l` ascending exactly as the from-scratch build did, so
-        // the entries are bit-identical and the optimum cannot drift.
+        // Entries in the same order as a from-scratch build, so the optimum cannot
+        // drift; off-diagonal entries carry no ridge (held[a] ≠ i).
         let mut gram = Mat::<f64>::zeros(ns, ns);
         for a in 0..ns - 1 {
             for b in 0..ns - 1 {
@@ -162,15 +175,11 @@ impl GramCache {
             }
         }
         for a in 0..ns - 1 {
-            let row = &self.zs[a * m..(a + 1) * m];
-            let acc: f64 = row.iter().zip(new).map(|(x, y)| x * y).sum();
-            let v = acc * inv_s;
+            let v = kin.gram(self.held[a], i, ridge);
             gram[(a, ns - 1)] = v;
             gram[(ns - 1, a)] = v;
         }
-        let acc: f64 = new.iter().map(|x| x * x).sum();
-        gram[(ns - 1, ns - 1)] = acc * inv_s + ridge;
-
+        gram[(ns - 1, ns - 1)] = kin.gram(i, i, ridge);
         self.gram = gram;
         self.held.push(i);
     }
@@ -262,6 +271,7 @@ pub fn solve(
     c_cur[support[0]] = 1.0;
     let mut products = 0u32;
     let mut gram = GramCache::new();
+    let kin = DenseZ { z, s };
     // Anti-cycling: indices dropped for negativity are taboo for re-addition
     // until the next genuine progress step (a reduced-cost add), which clears
     // the set. Without this, a drop→infeasible→re-add stall could loop to
@@ -270,13 +280,13 @@ pub fn solve(
 
     for it in 0..max_iter {
         let b_s: Vec<f64> = support.iter().map(|&i| b[i]).collect();
-        gram.sync(z, s, ridge, &support);
+        gram.sync(&kin, ridge, &support);
         let g_ss = gram.matrix();
 
         match closed_form(g_ss, &b_s, k) {
             None => {
                 // Support cannot satisfy k yet: add the least related candidate.
-                let gc = g_matvec(z, s, ridge, &c_cur);
+                let gc = kin.matvec(&c_cur, ridge);
                 products += 1;
                 let mut best_j = None;
                 let mut best_val = f64::INFINITY;
@@ -316,7 +326,7 @@ pub fn solve(
                 c_cur = c;
 
                 // Reduced costs rⱼ = bⱼ − μ − 2λ (G c)ⱼ ; add the best violator.
-                let gc = g_matvec(z, s, ridge, &c_cur);
+                let gc = kin.matvec(&c_cur, ridge);
                 products += 1;
                 let mut best_j = None;
                 let mut best_r = tol;
@@ -357,7 +367,7 @@ pub fn solve(
     }
 
     // Cap hit: return the best feasible iterate found.
-    let gc = g_matvec(z, s, ridge, &c_cur);
+    let gc = kin.matvec(&c_cur, ridge);
     let mut sorted: Vec<usize> = (0..n).filter(|&i| c_cur[i] > tol).collect();
     sorted.sort_unstable();
     SupportFirstOutcome {
@@ -505,6 +515,35 @@ pub fn solve_sexed(
     max_iter: u32,
     tol: f64,
 ) -> SupportFirstOutcome {
+    solve_sexed_impl(&DenseZ { z, s }, ridge, b, male, k, max_iter, tol)
+}
+
+/// Sexed OCS from 2-bit packed genotypes: the same algorithm and optimum as
+/// [`solve_sexed`], reading kinship from a [`PackedGeno`] so the dense `Z` is never
+/// stored — the memory- and large-`n`-enabling path.
+#[allow(clippy::too_many_arguments)]
+pub fn solve_sexed_packed(
+    packed: &PackedGeno,
+    ridge: f64,
+    b: &[f64],
+    male: &[bool],
+    k: f64,
+    max_iter: u32,
+    tol: f64,
+) -> SupportFirstOutcome {
+    solve_sexed_impl(packed, ridge, b, male, k, max_iter, tol)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn solve_sexed_impl(
+    kin: &dyn Kinship,
+    ridge: f64,
+    b: &[f64],
+    male: &[bool],
+    k: f64,
+    max_iter: u32,
+    tol: f64,
+) -> SupportFirstOutcome {
     let n = b.len();
     let (best_m, best_f) = match (argmax_masked(b, male, true), argmax_masked(b, male, false)) {
         (Some(m), Some(f)) => (m, f),
@@ -532,12 +571,12 @@ pub fn solve_sexed(
     for it in 0..max_iter {
         let b_s: Vec<f64> = support.iter().map(|&i| b[i]).collect();
         let male_s: Vec<bool> = support.iter().map(|&i| male[i]).collect();
-        gram.sync(z, s, ridge, &support);
+        gram.sync(kin, ridge, &support);
         let g_ss = gram.matrix();
 
         match closed_form_sexed(g_ss, &b_s, &male_s, k) {
             None => {
-                let gc = g_matvec(z, s, ridge, &c_cur);
+                let gc = kin.matvec(&c_cur, ridge);
                 products += 1;
                 let mut best_j = None;
                 let mut best_val = f64::INFINITY;
@@ -578,7 +617,7 @@ pub fn solve_sexed(
                 }
                 c_cur = c;
 
-                let gc = g_matvec(z, s, ridge, &c_cur);
+                let gc = kin.matvec(&c_cur, ridge);
                 products += 1;
                 let mut best_j = None;
                 let mut best_r = tol;
@@ -618,7 +657,7 @@ pub fn solve_sexed(
         }
     }
 
-    let gc = g_matvec(z, s, ridge, &c_cur);
+    let gc = kin.matvec(&c_cur, ridge);
     let mut sorted: Vec<usize> = (0..n).filter(|&i| c_cur[i] > tol).collect();
     sorted.sort_unstable();
     SupportFirstOutcome {
@@ -736,10 +775,11 @@ pub fn solve_capped(
     c_cur[free[0]] = caps[free[0]].min(1.0);
     let mut products = 0u32;
     let mut gram = GramCache::new();
+    let kin = DenseZ { z, s };
     let mut dropped = vec![false; n];
 
     for it in 0..max_iter {
-        gram.sync(z, s, ridge, &free);
+        gram.sync(&kin, ridge, &free);
         let g_ff = gram.matrix();
         let b_f: Vec<f64> = free.iter().map(|&i| b[i]).collect();
         // Offsets from the upper set, matrix-free: G·(caps on U).
@@ -750,7 +790,7 @@ pub fn solve_capped(
             for &j in &at_upper {
                 u_full[j] = caps[j];
             }
-            let gc_u = g_matvec(z, s, ridge, &u_full);
+            let gc_u = kin.matvec(&u_full, ridge);
             products += 1;
             let o: Vec<f64> = free.iter().map(|&i| gc_u[i]).collect();
             let cuu: f64 = at_upper.iter().map(|&j| caps[j] * gc_u[j]).sum();
@@ -760,7 +800,7 @@ pub fn solve_capped(
 
         match closed_form_capped(g_ff, &b_f, &o, cuu, dprime, k) {
             None => {
-                let gc = g_matvec(z, s, ridge, &c_cur);
+                let gc = kin.matvec(&c_cur, ridge);
                 products += 1;
                 let mut best_j = None;
                 let mut best_val = f64::INFINITY;
@@ -823,7 +863,7 @@ pub fn solve_capped(
                     c[j] = caps[j];
                 }
                 c_cur = c;
-                let gc = g_matvec(z, s, ridge, &c_cur);
+                let gc = kin.matvec(&c_cur, ridge);
                 products += 1;
 
                 // Price: add a zero var with positive reduced cost, or release an
@@ -874,7 +914,7 @@ pub fn solve_capped(
         }
     }
 
-    let gc = g_matvec(z, s, ridge, &c_cur);
+    let gc = kin.matvec(&c_cur, ridge);
     let mut sorted: Vec<usize> = (0..n).filter(|&i| c_cur[i] > tol).collect();
     sorted.sort_unstable();
     SupportFirstOutcome {
@@ -1040,6 +1080,7 @@ pub fn solve_sexed_capped(
     c_cur[best_f] = caps[best_f].min(0.5);
     let mut products = 0u32;
     let mut gram = GramCache::new();
+    let kin = DenseZ { z, s };
     let mut dropped = vec![false; n];
 
     // Best uncapped candidate of a sex (for re-seeding), or None.
@@ -1056,7 +1097,7 @@ pub fn solve_sexed_capped(
     };
 
     for it in 0..max_iter {
-        gram.sync(z, s, ridge, &free);
+        gram.sync(&kin, ridge, &free);
         let g_ff = gram.matrix();
         let b_f: Vec<f64> = free.iter().map(|&i| b[i]).collect();
         let male_f: Vec<bool> = free.iter().map(|&i| male[i]).collect();
@@ -1067,7 +1108,7 @@ pub fn solve_sexed_capped(
             for &j in &at_upper {
                 u_full[j] = caps[j];
             }
-            let gc_u = g_matvec(z, s, ridge, &u_full);
+            let gc_u = kin.matvec(&u_full, ridge);
             products += 1;
             let o: Vec<f64> = free.iter().map(|&i| gc_u[i]).collect();
             let cuu: f64 = at_upper.iter().map(|&j| caps[j] * gc_u[j]).sum();
@@ -1086,7 +1127,7 @@ pub fn solve_sexed_capped(
 
         match closed_form_sexed_capped(g_ff, &b_f, &male_f, &o, cuu, d_m, d_f, k) {
             None => {
-                let gc = g_matvec(z, s, ridge, &c_cur);
+                let gc = kin.matvec(&c_cur, ridge);
                 products += 1;
                 let mut best_j = None;
                 let mut best_val = f64::INFINITY;
@@ -1148,7 +1189,7 @@ pub fn solve_sexed_capped(
                     c[j] = caps[j];
                 }
                 c_cur = c;
-                let gc = g_matvec(z, s, ridge, &c_cur);
+                let gc = kin.matvec(&c_cur, ridge);
                 products += 1;
 
                 let mut best_j = None;
@@ -1198,7 +1239,7 @@ pub fn solve_sexed_capped(
         }
     }
 
-    let gc = g_matvec(z, s, ridge, &c_cur);
+    let gc = kin.matvec(&c_cur, ridge);
     let mut sorted: Vec<usize> = (0..n).filter(|&i| c_cur[i] > tol).collect();
     sorted.sort_unstable();
     SupportFirstOutcome {
@@ -1216,6 +1257,34 @@ pub fn solve_sexed_capped(
 mod tests {
     use super::*;
     use crate::datagen;
+
+    #[test]
+    fn packed_solver_matches_dense() {
+        use crate::packed::PackedGeno;
+        let d = datagen::generate(400, 800, 12345);
+        let male: Vec<bool> = (0..400).map(|i| i % 2 == 0).collect();
+        let ridge = 1e-5;
+        // Raw M reconstructed from the centred Z (exact integers for datagen), packed 2-bit.
+        let packed = PackedGeno::from_getter(
+            400,
+            800,
+            |i, l| (d.z[(i, l)] + 2.0 * d.p[l]).round() as u8,
+            d.p.clone(),
+            d.s,
+        );
+        let k = 0.05;
+        let dense = solve_sexed(d.z.as_ref(), d.s, ridge, &d.b, &male, k, 50_000, 1e-9);
+        let pk = solve_sexed_packed(&packed, ridge, &d.b, &male, k, 50_000, 1e-9);
+        assert_eq!(dense.status, pk.status);
+        assert_eq!(dense.support, pk.support);
+        assert!(
+            (dense.gain - pk.gain).abs() < 1e-9,
+            "gain differs: {} vs {}",
+            dense.gain,
+            pk.gain
+        );
+        assert!((dense.quad - pk.quad).abs() < 1e-9);
+    }
     use crate::grm;
     use crate::socp::{self, Factor};
     use crate::solve as conic;
