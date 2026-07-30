@@ -19,9 +19,12 @@ lets it solve instances whose dense matrix (≈12 GiB at n = 40 000) will not fi
 memory, and why the cost follows the (tiny) active support and the marker count
 rather than n².
 
-On real marker panels it reaches the same optimum as optiSel 12–180× faster end to
-end (and, handed the relationship matrix as the interior-point tools require it, the
-active set alone up to ~2500× faster).
+On real marker panels it reaches the same optimum as optiSel. Given the relationship
+matrix, the active set is 12–132× faster than optiSel's interior-point solve at
+breeder-relevant coancestry caps (ΔF 0.5–2 %); and because it never forms the dense
+matrix, it runs at population sizes where that matrix cannot be built at all. The
+matrix-free path costs O(nm) per iteration, so it is the enabler at scale rather than
+a universal speed-up.
 
 ## Install
 

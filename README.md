@@ -7,8 +7,10 @@ that exploits the sparsity of the *solution*: the optimal contribution vector
 activates only a handful of candidates, so support-first finds that small support
 by active-set column generation, solves each fixed support in closed form, and
 never forms the dense `n×n` relationship matrix. It reaches the **same optimum**
-as the domain's exact tool (optiSel) **orders of magnitude faster**, and is
-validated on real genomic panels.
+as the domain's exact tool (optiSel): given the relationship matrix its active set
+is 12–132× faster at breeder-relevant coancestry caps, and — because it never forms
+the dense matrix — it runs at population sizes where that matrix cannot be built at
+all. Validated on real genomic panels.
 
 > Full write-up — derivation, tables, figure, references —
 > [`research/MANUSCRIPT.md`](research/MANUSCRIPT.md).
@@ -26,11 +28,14 @@ mouse n=1814 with real sex):
   edge being the diversity budget left unspent, not a different solution. At least
   as accurate as the domain tool, exact where it is merely close. Cross-language
   agreement with a NumPy reference: `1.5e-14`.
-- **vs optiSel** (the standard exact tool): the shipped matrix-free solver, forming
-  no `G`, is **12×–180×** faster end to end, same optimum (mouse: 0.057 s vs 6.9 s).
-  Handed `G` precomputed — as the interior-point tools require it — the active set
-  alone reaches the same optimum up to **~2500×** faster (the algorithmic advantage;
-  see the two-column [`Table 2`](research/repro/table2_numbers.md)).
+- **vs optiSel** (the standard exact tool), at a breeder operating point (ΔF = 1 %,
+  Nₑ = 50), same optimum throughout. Two distinct results: **given `G`**, the active
+  set is **12–132×** faster than optiSel's interior-point solve — it prices in `O(n²)`,
+  independent of the marker count. The **shipped matrix-free** solver (forming no `G`,
+  `O(nm)` per iteration) is faster only up to moderate marker density — 3× on wheat,
+  ~6× on mouse — and is **slower** than optiSel on the 52k-SNP pig, where forming `G`
+  once wins. The matrix-free path is the memory enabler at scale, not a universal
+  speed-up (two-column [`Table 2`](research/repro/table2_numbers.md)).
 - **vs Clarabel** (a generic conic solver): up to **76179×** at n=10000
   (30 minutes → 24 ms). Rust against Rust in one process, so no language confound —
   see [`Table 1`](research/repro/table1_numbers.md).
@@ -38,11 +43,12 @@ mouse n=1814 with real sex):
   continuous relaxation the two share, scored at matched coancestry, the exact
   optimum is no worse — a consistency check, not a head-to-head — at a small
   fraction of the run time.
-- **Scales.** The optimal support stays ~15 as n grows to 40000, while the dense
-  `G` every other solver forms reaches **11.9 GiB** (past laptop memory) — and
-  merely *building* it costs more than the whole support-first solve — whereas
-  the matrix-free `Z` footprint stays 0.30 GiB and the solve stays under 0.1 s
-  (Figure 1: [`research/fig_scaling.pdf`](research/fig_scaling.pdf)).
+- **Scales (the enabling result).** At a fixed operating point (ΔF = 1 %) on
+  structured populations the support stays near 90 and the matrix-free solve near
+  0.3 s as n grows to 40000, while the dense `G` every other solver forms reaches
+  **11.9 GiB** (past laptop memory) — and merely *building* it costs more than the
+  whole solve. At that size the question is not how fast the dense-`G` tools run but
+  whether they run at all (Figure 1: [`research/fig_scaling.pdf`](research/fig_scaling.pdf)).
 
 ## The model
 

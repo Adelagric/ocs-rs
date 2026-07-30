@@ -29,11 +29,18 @@ if not CSV.exists():
         "  cargo run --release --example scaling_matrixfree"
     )
 
-rows = list(csv.DictReader(CSV.open()))
-n = np.array([float(r["n"]) for r in rows])
-support = np.array([float(r["support"]) for r in rows])
-solve_s = np.array([float(r["mfree_solve_s"]) for r in rows])
+rows = list(csv.DictReader(CSV.open()))  # matrix-free sweep: the dense-G build curve
 m = int(rows[0]["m"])
+
+# The solve and support curve is drawn at an HONEST breeder operating point
+# (ΔF = 1 %, Nₑ = 50) on structured AlphaSimR panels, not at the loose fixed-absolute
+# cap the build curve happens to use — the memory/build story below is
+# operating-point-independent, the support and solve are not.
+SCSV = pathlib.Path(__file__).resolve().parents[1] / "artifacts" / "scaling_structured.csv"
+srows = list(csv.DictReader(SCSV.open())) if SCSV.exists() else rows
+n = np.array([float(r["n"]) for r in srows])
+support = np.array([float(r["support"]) for r in srows])
+solve_s = np.array([float(r.get("solve_s", r.get("mfree_solve_s"))) for r in srows])
 
 # The dense build is timed only where G fits in RAM; beyond that the example records
 # "infeasible" and the figure projects the O(n^2) trend from the last measured point.
@@ -73,27 +80,26 @@ axA.set_yscale("log")
 axA.plot(build_n, build_s, "o-", color=C_BUILD, lw=2.2, ms=6, label="dense G: build only  (O(n²m))")
 axA.plot([build_n[-1], build_proj_n], [build_s[-1], build_proj_s], "--", color=C_BUILD, lw=1.3)
 axA.plot(build_proj_n, build_proj_s, "o", mfc="white", mec=C_BUILD, mew=1.5, ms=6)
-axA.plot(n, solve_s, "s-", color=C_SOLVE, lw=2.2, ms=5.5, label="support-first: full solve")
+axA.plot(n, solve_s, "s-", color=C_SOLVE, lw=2.2, ms=5.5, label="support-first solve (ΔF=1%, Nₑ=50)")
 axA.set_xlabel("candidates  n  (log scale)")
 axA.set_ylabel("time  (s, log scale)")
 axA.set_ylim(3e-3, 2e1)
-axA.legend(loc="upper left", frameon=False, fontsize=9.5)
+axA.legend(loc="lower right", frameon=False, fontsize=9.5)
 
 # Annotation computed from the data, not written by hand: the last n at which the
 # dense matrix was actually built, against the solve at that same n.
 i_last = int(np.argmax(build_n))
 n_last, t_build = build_n[i_last], build_s[i_last]
-t_solve = float(solve_s[np.argmin(np.abs(n - n_last))])
 axA.annotate(
-    f"{t_build / t_solve:.0f}× the solve at n={n_last / 1000:.0f}k\n"
-    f"({t_build:.1f} s vs {t_solve * 1000:.0f} ms)",
+    f"{t_build:.1f} s just to build G at n={n_last / 1000:.0f}k\n"
+    f"(more than the whole ΔF=1% solve)",
     # upper-right: the only region both curves and the (upper-left) legend leave free
-    xy=(n_last, t_build), xytext=(13000, 11.0), fontsize=9, color=C_BUILD,
+    xy=(n_last, t_build), xytext=(12500, 11.0), fontsize=9, color=C_BUILD,
     ha="center", arrowprops=dict(arrowstyle="->", color=C_BUILD, lw=1),
 )
 axA.text(
     1150, 5.5e-3,
-    f"support |S| = {int(support.min())}–{int(support.max())} throughout",
+    f"support |S| = {int(support.min())}–{int(support.max())} at ΔF=1% (Nₑ=50)",
     fontsize=9, color=C_SOLVE,
 )
 
