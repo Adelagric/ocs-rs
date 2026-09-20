@@ -12,8 +12,9 @@ is 12–132× faster at breeder-relevant coancestry caps, and — because it nev
 the dense matrix — it runs at population sizes where that matrix cannot be built at
 all. Validated on real genomic panels.
 
-> Full write-up — derivation, tables, figure, references —
-> [`research/MANUSCRIPT.md`](research/MANUSCRIPT.md).
+> Full write-up — derivation, tables, figures, references — [`research/MANUSCRIPT.tex`](research/MANUSCRIPT.tex)
+> (French: [`MANUSCRIPT_fr.tex`](research/MANUSCRIPT_fr.tex)); the compiled PDFs are attached to the
+> [latest release](https://github.com/Adelagric/ocs-rs/releases/latest).
 > Reproduce every number in one command:
 > [`bash research/repro/repro.sh`](research/repro/REPRODUCE.md).
 
@@ -83,7 +84,7 @@ equality rows.
   enters the restricted solve as a constant offset; verified against Clarabel on
   the matching `c ≤ u` cone program.
 
-Derivation in [`research/MANUSCRIPT.md`](research/MANUSCRIPT.md) (Methods);
+Derivation in [`research/MANUSCRIPT.tex`](research/MANUSCRIPT.tex) (Methods);
 implementation in [`src/support_first.rs`](src/support_first.rs) (`solve` /
 `solve_sexed`, and `solve_capped` / `solve_sexed_capped` for `c ≤ u`).
 

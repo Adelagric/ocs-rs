@@ -2,7 +2,7 @@
 
 > Note autoportante — une preuve, un contre-exemple et le régime empirique — pour le nombre
 > d'individus qu'active un optimum de sélection à contribution optimale. Note compagne du
-> solveur support-first (`MANUSCRIPT_fr.md`). Version française ; note de référence en anglais
+> solveur support-first (`MANUSCRIPT_fr.tex`). Version française ; note de référence en anglais
 > (`support_bound_sketch.md`). Toute affirmation empirique est reproductible (voir *Évidence
 > numérique*).
 

@@ -2,7 +2,7 @@
 
 > A self-contained note — a proof, a counterexample, and the empirical regime — for the
 > number of individuals an optimum-contribution-selection optimum activates. Companion to
-> the support-first solver (`MANUSCRIPT.md`). Every empirical claim is reproducible; the
+> the support-first solver (`MANUSCRIPT.tex`). Every empirical claim is reproducible; the
 > scripts are listed under *Numerical evidence*.
 
 ## 1. The question

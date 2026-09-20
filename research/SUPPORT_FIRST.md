@@ -1,7 +1,7 @@
 # Support-first OCS — research note
 
 Status: **validated and written up — superseded by**
-[`MANUSCRIPT.md`](MANUSCRIPT.md), which carries the final numbers, the `c ≤ u`
+[`MANUSCRIPT.tex`](MANUSCRIPT.tex), which carries the final numbers, the `c ≤ u`
 extension, and the Rust implementation. This note is kept as the development
 log: the lead, the reduction, and how it was confirmed (synthetic → real wheat,
 pig, and mouse panels). Numbers below are reproducible with
@@ -214,7 +214,7 @@ governed by `|S|` rather than `n³`.
 5. **AlphaMate — cleared.** AlphaMate targets a *distinct* problem (discrete mate
    allocation); on the continuous relaxation the two share, scored at matched
    coancestry, support-first's exact optimum is no worse — a consistency check, not
-   a duel — at a fraction of the run time (see [`MANUSCRIPT.md`](MANUSCRIPT.md)).
+   a duel — at a fraction of the run time (see [`MANUSCRIPT.tex`](MANUSCRIPT.tex)).
 
 ## References
 
