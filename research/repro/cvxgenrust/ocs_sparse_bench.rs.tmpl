@@ -1,0 +1,61 @@
+//! Driver for the crate generated with `L` declared lower-triangular
+//! (`gen_ocs_sparse.py`): packs the triangle in the two candidate orders — the
+//! generated setter expects the order of the sparsity index arrays as given, i.e.
+//! `np.tril_indices` row-major — and reports A nnz and timings. `MODULE` is
+//! substituted by run.sh.
+use std::time::Instant;
+use MODULE::CGRProblem;
+
+fn read_f64s(buf: &[u8], off: &mut usize, count: usize) -> Vec<f64> {
+    let mut out = Vec::with_capacity(count);
+    for _ in 0..count {
+        let mut w = [0u8; 8];
+        w.copy_from_slice(&buf[*off..*off + 8]);
+        out.push(f64::from_le_bytes(w));
+        *off += 8;
+    }
+    out
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let path = std::env::args().nth(1).ok_or("usage: ocs_sparse_bench <ocs_nN.bin>")?;
+    let buf = std::fs::read(&path)?;
+    let mut off = 0usize;
+    let mut w = [0u8; 8];
+    w.copy_from_slice(&buf[0..8]);
+    off += 8;
+    let n = u64::from_le_bytes(w) as usize;
+    let k = read_f64s(&buf, &mut off, 1)[0];
+    let b = read_f64s(&buf, &mut off, n);
+    let l = read_f64s(&buf, &mut off, n * n); // column-major full matrix
+    let at = |i: usize, j: usize| l[j * n + i];
+    // (a) row-major over the lower triangle: (0,0),(1,0),(1,1),(2,0),... = np.tril_indices order
+    let mut tri_row = Vec::with_capacity(n * (n + 1) / 2);
+    for i in 0..n { for j in 0..=i { tri_row.push(at(i, j)); } }
+    // (b) column-major over the lower triangle: (0,0),(1,0),...,(n-1,0),(1,1),...
+    let mut tri_col = Vec::with_capacity(n * (n + 1) / 2);
+    for j in 0..n { for i in j..n { tri_col.push(at(i, j)); } }
+    for (name, tri) in [("row-major pattern order", &tri_row), ("column-major pattern order", &tri_col)] {
+        let mut problem = CGRProblem::new();
+        problem.set_b(&b)?;
+        problem.set_l(tri)?;
+        problem.set_r(&[k.sqrt()])?;
+        let canon = problem.canonical_cone_prob()?;
+        let a_nnz = canon.a.data.len();
+        let a_zeros = canon.a.data.iter().filter(|&&v| v == 0.0).count();
+        drop(canon);
+        let mut best = f64::INFINITY; let mut last = None;
+        for _ in 0..3 {
+            let t = Instant::now();
+            let sol = problem.solve()?;
+            best = best.min(t.elapsed().as_secs_f64());
+            last = Some(sol);
+        }
+        let sol = last.ok_or("no solve")?;
+        let c = problem.extract_c(&sol.x)?;
+        let supp = c.iter().filter(|&&v| v > 1e-6).count();
+        println!("{name}: A nnz {a_nnz} (explicit zeros {a_zeros})  best solve {best:.3}s  iters {}  gain {:.9}  |S|={supp}  status {}",
+                 sol.iterations, -sol.obj_val, sol.status);
+    }
+    Ok(())
+}

@@ -39,4 +39,15 @@ for n in "${@:-500 1000}"; do
   grep -q '^\[workspace\]' "$crate/Cargo.toml" || printf '\n[workspace]\n' >> "$crate/Cargo.toml"
   ( cd "$crate" && cargo build --release -q --example ocs_bench )
   "$crate/target/release/examples/ocs_bench" "$ART/ocs_n${n}.bin" 3
+
+  # Same family with L declared lower-triangular (sparsity=): the generator then
+  # carries only the triangle and needs no Clarabel setting to be at parity.
+  ( cd "$ART" && $TIME python "$HERE/gen_ocs_sparse.py" "$n" 2>&1 | grep -E "^\[gen-sparse\]|maximum resident|Maximum resident" )
+  scrate="$ART/ocs_sparse_n${n}_cgr"
+  sed "s/MODULE/ocs_sparse_n${n}/g" ocs_sparse_bench.rs.tmpl > "$scrate/examples/ocs_sparse_bench.rs"
+  sed -i '' 's/^clarabel = "0.11.1"/clarabel = "=0.11.1"/' "$scrate/Cargo.toml"
+  grep -q '^\[profile.release\]' "$scrate/Cargo.toml" || printf '\n[profile.release]\nopt-level = 3\nlto = "thin"\n' >> "$scrate/Cargo.toml"
+  grep -q '^\[workspace\]' "$scrate/Cargo.toml" || printf '\n[workspace]\n' >> "$scrate/Cargo.toml"
+  ( cd "$scrate" && cargo build --release -q --example ocs_sparse_bench )
+  "$scrate/target/release/examples/ocs_sparse_bench" "$ART/ocs_n${n}.bin"
 done
