@@ -202,7 +202,10 @@ cargo fmt --check
 A `Solved` result is always feasible and on the budget (sex-split for the sexed
 solver), certified across a range of caps `k`. The optimum is cross-checked
 independently of this crate's arithmetic: against Clarabel (conic IPM), a NumPy
-reference (`1.5e-14`), SciPy SLSQP, and optiSel on real data.
+reference (`1.5e-14`), SciPy SLSQP, and optiSel on real data. The Clarabel
+baseline itself is reconstructed by a third party's code generator, cvxgenrust,
+from a CVXPY model of the cone program — same optimum, same per-iteration cost
+([`research/repro/cvxgenrust/RESULTS.md`](research/repro/cvxgenrust/RESULTS.md)).
 
 ## Origin — the Clarabel spike
 
@@ -225,6 +228,28 @@ counterexample showing no universal bound survives the ridge
 and the solver handles a single quadratic constraint and continuous contributions —
 per-candidate caps `c ≤ u` are supported, but multiple quadratic constraints and
 integer mate allocation are not. These are stated in the manuscript's Discussion.
+
+## Credits
+
+The results stand on other people's work, cited in the manuscript and named here
+so the credit is visible from the README alone.
+
+- **cvxgenrust** — Hao Zhu & Joschka Boedecker (University of Freiburg),
+  [github.com/dxogrp/cvxgenrust](https://github.com/dxogrp/cvxgenrust),
+  [arXiv:2609.13875](https://doi.org/10.48550/arXiv.2609.13875). Used to
+  independently reconstruct the Clarabel baseline from the CVXPY formulation;
+  what we learned doing so is reported upstream as
+  [dxogrp/cvxgenrust#1](https://github.com/dxogrp/cvxgenrust/issues/1).
+- **Clarabel** — Paul Goulart & Yuwen Chen, [clarabel.org](https://clarabel.org).
+  The conic interior-point oracle every optimum is checked against.
+- **faer** — Sarah Quiñones, [github.com/sarah-quinones/faer-rs](https://github.com/sarah-quinones/faer-rs).
+  The pure-Rust dense linear algebra underneath.
+- **optiSel** — Robin Wellmann; **AlphaMate** — Gregor Gorjanc & John Hickey;
+  **AlphaSimR** — Chris Gaynor et al. The domain baselines and the simulator of
+  the multi-generation validation.
+- **Data** — the wheat and mouse panels ship with **BGLR** (Paulino Pérez &
+  Gustavo de los Campos); the pig panel is the PIC common dataset (Cleveland,
+  Hickey & Forni 2012).
 
 ## Constraints honoured
 
