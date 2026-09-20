@@ -178,6 +178,15 @@ pub trait Kinship {
     fn matvec(&self, c: &[f64], ridge: f64) -> Vec<f64>;
     /// `G[i,j] = (zᵢ·zⱼ)/s + ridge·[i=j]`.
     fn gram(&self, i: usize, j: usize, ridge: f64) -> f64;
+    /// The dense centred genotypes behind this operator, `(Z, s)` with `Z` `n×m`
+    /// column-major, when it holds them. A row of such a `Z` strides by `n`, so
+    /// building the support Gram from [`Kinship::gram`] one entry at a time misses
+    /// the cache on every marker; the solver instead gathers each support row once
+    /// and takes contiguous dot products. `None` for representations whose entries
+    /// are already contiguous (the packed columns), which keep the entry-wise path.
+    fn dense_z(&self) -> Option<(faer::MatRef<'_, f64>, f64)> {
+        None
+    }
 }
 
 impl Kinship for PackedGeno {

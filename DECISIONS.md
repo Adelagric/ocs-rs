@@ -95,3 +95,21 @@ trustworthy: a wrong CSC assembly would still report Solved but fail this check.
 line). Reading RSS in-process would need `getrusage` via libc → `unsafe`, which
 is banned, so the external wrapper is the authoritative source. The binary also
 prints an *analytical* lower bound (G + Z + L + A nnz) labelled as an estimate.
+
+## The support-Gram cache keeps a contiguous copy of the dense support rows (2026-09-20)
+
+`Z` is column-major, so a row of it strides by `n`; building `G_S` one entry at a
+time through `MatRef` indexing misses the cache on every marker. The `Kinship`
+refactor (`e10e2f0`) dropped the row buffer `GramCache::zs` for a representation-
+agnostic `gram(i, j)` and cost 4.6× on the n=1000 / m=20000 sweep (BENCHES.md).
+Restored through `Kinship::dense_z() -> Option<(MatRef, f64)>`: the cache gathers
+each support row once and takes contiguous dot products when the operator exposes a
+dense `Z`, and keeps the entry-wise path otherwise (the packed columns are already
+contiguous, and `PackedGeno::gram_entry` is the right primitive there). Alternatives
+rejected: interior mutability inside `DenseZ` (a `RefCell` row cache behind a `&self`
+trait method — hides state, adds a borrow on the hot path); `&mut self` trait methods
+(forces a wrapper for the shared `&PackedGeno`). Summation order over the markers
+is ascending on both paths, so the Gram entries — and the optimum — are
+bit-identical across representations (`packed_solver_matches_dense`). Invariant to
+preserve: **whatever the operator, `G_S` must never be built by striding through a
+column-major `Z`.**

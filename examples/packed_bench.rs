@@ -1,7 +1,10 @@
 //! Pig-shape benchmark of the 2-bit packed sexed solve against the dense-`f64` one.
-//! Same optimum (asserted), but the packed genotypes are 32× smaller and, at the
-//! pig's high marker count, cache-resident — the case where the dense matrix-free
-//! path was memory-bound and slow.
+//! Same optimum (asserted) at 32× less memory; whether the packing also buys time
+//! at the pig's marker count is what this prints. As measured it does not: the
+//! packed product is compute-bound (unpacking) where the dense stream is
+//! bandwidth-bound, and the packed solve is slower (research/REVISION.md,
+//! post-0.3.0 audit). Run on an idle machine — the packed product is threaded and
+//! is the side that suffers under load.
 //!
 //!   cargo run --release --example packed_bench
 

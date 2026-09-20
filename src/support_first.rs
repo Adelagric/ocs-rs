@@ -127,15 +127,32 @@ impl Kinship for DenseZ<'_> {
         let acc: f64 = (0..m).map(|l| self.z[(i, l)] * self.z[(j, l)]).sum();
         acc / self.s + if i == j { ridge } else { 0.0 }
     }
+    fn dense_z(&self) -> Option<(MatRef<'_, f64>, f64)> {
+        Some((self.z, self.s))
+    }
 }
 
 /// Caches the restricted Gram `G_SS` on the current support, extending it by one row
 /// and column when the support grows (the common case) rather than rebuilding. The
-/// entries come from the [`Kinship`] operator, so the same cache serves the dense and
-/// the 2-bit packed representations.
+/// same cache serves the dense and the 2-bit packed representations, through two
+/// paths that sum the same entries in the same marker order:
+///
+/// - dense `Z` ([`Kinship::dense_z`]): `Z` is column-major, so walking a row of it
+///   strides by `n` and misses the cache on every marker. Each support row is
+///   gathered once into a compact row-major buffer and every later dot product is a
+///   contiguous scan — the larger half of the win on a wide panel. (Dropping this
+///   buffer for the entry-wise path below cost 4.6× on the `n=1000, m=20000` sweep.)
+/// - anything else: entries straight from [`Kinship::gram`], which for the packed
+///   columns is already contiguous.
+///
+/// The buffer holds `|S| × m` values, which the whole design assumes is a handful of
+/// rows; a support that grew to a large fraction of `n` would make this a second copy
+/// of `Z`, and that regime is already outside what support-first is for.
 struct GramCache {
     /// The support this cache currently describes, in order.
     held: Vec<usize>,
+    /// Dense path only: `held.len() × m`, row-major, row `a` is `Z[held[a], ..]`.
+    zs: Vec<f64>,
     gram: Mat<f64>,
 }
 
@@ -143,6 +160,7 @@ impl GramCache {
     fn new() -> Self {
         Self {
             held: Vec::new(),
+            zs: Vec::new(),
             gram: Mat::zeros(0, 0),
         }
     }
@@ -153,6 +171,7 @@ impl GramCache {
     fn sync(&mut self, kin: &dyn Kinship, ridge: f64, support: &[usize]) {
         if !support.starts_with(&self.held) {
             self.held.clear();
+            self.zs.clear();
             self.gram = Mat::zeros(0, 0);
         }
         for &i in &support[self.held.len()..] {
@@ -164,22 +183,46 @@ impl GramCache {
         &self.gram
     }
 
+    /// Extend the Gram by candidate `i`. Entries are summed over the markers in
+    /// ascending order on both paths, exactly as a from-scratch build would, so the
+    /// optimum cannot drift between representations; off-diagonal entries carry no
+    /// ridge (`held[a] ≠ i`).
     fn append(&mut self, kin: &dyn Kinship, ridge: f64, i: usize) {
         let ns = self.held.len() + 1;
-        // Entries in the same order as a from-scratch build, so the optimum cannot
-        // drift; off-diagonal entries carry no ridge (held[a] ≠ i).
         let mut gram = Mat::<f64>::zeros(ns, ns);
         for a in 0..ns - 1 {
             for b in 0..ns - 1 {
                 gram[(a, b)] = self.gram[(a, b)];
             }
         }
-        for a in 0..ns - 1 {
-            let v = kin.gram(self.held[a], i, ridge);
-            gram[(a, ns - 1)] = v;
-            gram[(ns - 1, a)] = v;
+        match kin.dense_z() {
+            Some((z, s)) => {
+                let m = z.ncols();
+                self.zs.reserve(m);
+                for l in 0..m {
+                    self.zs.push(z[(i, l)]);
+                }
+                let inv_s = 1.0 / s;
+                let new = &self.zs[(ns - 1) * m..ns * m];
+                for a in 0..ns - 1 {
+                    let row = &self.zs[a * m..(a + 1) * m];
+                    let acc: f64 = row.iter().zip(new).map(|(x, y)| x * y).sum();
+                    let v = acc * inv_s;
+                    gram[(a, ns - 1)] = v;
+                    gram[(ns - 1, a)] = v;
+                }
+                let acc: f64 = new.iter().map(|x| x * x).sum();
+                gram[(ns - 1, ns - 1)] = acc * inv_s + ridge;
+            }
+            None => {
+                for a in 0..ns - 1 {
+                    let v = kin.gram(self.held[a], i, ridge);
+                    gram[(a, ns - 1)] = v;
+                    gram[(ns - 1, a)] = v;
+                }
+                gram[(ns - 1, ns - 1)] = kin.gram(i, i, ridge);
+            }
         }
-        gram[(ns - 1, ns - 1)] = kin.gram(i, i, ridge);
         self.gram = gram;
         self.held.push(i);
     }
