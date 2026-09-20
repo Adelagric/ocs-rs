@@ -855,7 +855,7 @@ dependencies = [
 
 [[package]]
 name = "ocs_rs"
-version = "0.1.0"
+version = "0.3.1"
 dependencies = [
  "clarabel",
  "faer",
@@ -865,7 +865,7 @@ dependencies = [
 
 [[package]]
 name = "ocsrs"
-version = "0.1.0"
+version = "0.3.1"
 dependencies = [
  "extendr-api",
  "faer",
