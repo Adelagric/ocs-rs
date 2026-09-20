@@ -32,3 +32,7 @@ __pycache__/
 *.abi3.so
 .pytest_cache/
 *.egg-info/
+
+# cvxgenrust check: local venv, generated crates and instance dumps (reproducible via run.sh)
+/research/repro/cvxgenrust/artifacts/
+/research/repro/cvxgenrust/dump_ocs/target/

@@ -1,0 +1,20 @@
+[package]
+name = "dump_ocs"
+version = "0.1.0"
+edition = "2024"
+description = "Dumps the Table-1 Route-A instance (L, b, k) and times the crate's own conic path on it."
+publish = false
+
+[dependencies]
+ocs_rs = { path = "../../../.." }
+faer = { version = "=0.24.0", default-features = false, features = ["linalg", "std", "rayon"] }
+
+# Same release profile as the crate (BENCHES.md), so the two Clarabel binaries
+# are compiled alike.
+[profile.release]
+opt-level = 3
+lto = "thin"
+
+# Own workspace root: this is a throwaway check, not a member of the crate's
+# workspace.
+[workspace]

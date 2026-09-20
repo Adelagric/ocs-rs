@@ -1,0 +1,68 @@
+//! Driver for the generated crate: load the ocs-rs instance (L, b, k) dumped by
+//! `dump_ocs` and time the generated solver on it, with and without Clarabel's
+//! `input_sparse_dropzeros` (the generator carries the triangular factor's zeros).
+//! `MODULE` is substituted by run.sh.
+use std::time::Instant;
+
+use MODULE::CGRProblem;
+
+fn read_f64s(buf: &[u8], off: &mut usize, count: usize) -> Vec<f64> {
+    let mut out = Vec::with_capacity(count);
+    for _ in 0..count {
+        let mut w = [0u8; 8];
+        w.copy_from_slice(&buf[*off..*off + 8]);
+        out.push(f64::from_le_bytes(w));
+        *off += 8;
+    }
+    out
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let path = std::env::args().nth(1).ok_or("usage: ocs_bench <ocs_nN.bin>")?;
+    let buf = std::fs::read(&path)?;
+    let mut off = 0usize;
+    let mut w = [0u8; 8];
+    w.copy_from_slice(&buf[0..8]);
+    off += 8;
+    let n = u64::from_le_bytes(w) as usize;
+    let k = read_f64s(&buf, &mut off, 1)[0];
+    let b = read_f64s(&buf, &mut off, n);
+    let l = read_f64s(&buf, &mut off, n * n); // column-major, CVXPY flattened order
+    let r = k.sqrt();
+
+    let mut problem = CGRProblem::new();
+    let t = Instant::now();
+    problem.set_b(&b)?;
+    problem.set_l(&l)?;
+    problem.set_r(&[r])?;
+    let t_set = t.elapsed().as_secs_f64();
+
+    let t = Instant::now();
+    let canon = problem.canonical_cone_prob()?;
+    let t_canon = t.elapsed().as_secs_f64();
+    let a_nnz = canon.a.data.len();
+    let a_zeros = canon.a.data.iter().filter(|&&v| v == 0.0).count();
+    drop(canon);
+
+    let reps: usize = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(3);
+    for rep in 0..reps {
+        for dropzeros in [false, true] {
+            let mut settings = MODULE::ClarabelSettings::<f64>::default();
+            settings.verbose = false;
+            settings.input_sparse_dropzeros = dropzeros;
+            let t = Instant::now();
+            let sol = problem.solve_with_settings(settings)?;
+            let t_solve = t.elapsed().as_secs_f64();
+            let c = problem.extract_c(&sol.x)?;
+            let supp = c.iter().filter(|&&v| v > 1e-6).count();
+            let sum: f64 = c.iter().sum();
+            println!(
+                "cvxgenrust n={n} rep{rep} dropzeros={dropzeros:<5}: set_params {t_set:.3}s  canonicalise {t_canon:.3}s \
+                 (A nnz {a_nnz}, explicit zeros {a_zeros})  solve(wall) {t_solve:.3}s  clarabel.solve_time {:.3}s  \
+                 iters {}  gain {:.9}  |S|={supp}  Σc={sum:.6}  status {}",
+                sol.solve_time, sol.iterations, -sol.obj_val, sol.status
+            );
+        }
+    }
+    Ok(())
+}
