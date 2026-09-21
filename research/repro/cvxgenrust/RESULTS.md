@@ -30,15 +30,16 @@ interleaved, best of 3 unless stated.
 |---|---|---|---|---|
 | 500 | 0.251 s, 16 it, 15.7 ms/it | 0.288 s, 19 it, 15.2 ms/it | 1.426 s, 19 it | 1.601139067 / 1.601139056 |
 | 1000 | 2.41 s, 21 it, 115 ms/it (current tree)¹ | 2.20 s, 19 it, 116 ms/it | 6.90 s, 19 it | 1.991005810 / 1.991005826 |
+| 1000, **idle** (2026-09-20 17:22, load 1.4) | 2.16 s, 21 it, **103 ms/it** (current tree); 1.91 s, 91 ms/it (`bb8d90e`) | 1.95 s, 19 it, **103 ms/it** | 5.46 s, 19 it | same |
 
 Support 100 / 99 on both sides; Σc = 1 to 1e-6; both `Solved`.
 
 - The generated program is the same cone program with one extra scalar variable
   and one extra nonnegative row (CVXPY's canonicalisation of the norm cone), hence
-  ±3 iterations; the **per-iteration cost agrees within 3 %** at both sizes
-  against a binary of the current tree (15.2 vs 15.7 ms/it; 116 vs 115 ms/it),
-  and is 16 % *above* the binary Table 1 was measured with (100 ms/it¹) — the
-  hand-assembled baseline is, if anything, the faster one.
+  ±3 iterations; the **per-iteration cost is the same** as a binary of the current
+  tree — 103 vs 103 ms/it on the idle machine (15.2 vs 15.7 ms/it at n=500; 116 vs
+  115 ms/it under load) — and 13 % *above* the binary Table 1 was measured with
+  (91 ms/it idle¹): the hand-assembled baseline is, if anything, the faster one.
 - **Explicit zeros — a modelling choice, not a generator defect.** Declared as a
   dense `n×n` parameter (the first spike), `L` reaches Clarabel with the strict
   upper triangle of `Lᵀ` as `n(n−1)/2` explicit zeros (124 750 at n=500, 499 500 at
@@ -55,16 +56,18 @@ Support 100 / 99 on both sides; Σc = 1 to 1e-6; both `Solved`.
   than the matrix shape. The crate's `socp.rs` emits only the triangle, which is
   the same thing done by hand.
 
-¹ The crate's Route A takes 2.11–2.14 s (21 it, 100 ms/it) with a binary built
-from commit `bb8d90e`, the tree Table 1 was measured with, and 2.41–2.45 s with a
-binary of the current tree — see the next section.
+¹ The crate's Route A takes 1.90–1.92 s idle (2.11–2.14 s under load; 21 it) with
+a binary built from commit `bb8d90e`, the tree Table 1 was measured with, and
+2.15–2.16 s idle (2.41–2.45 s under load) with a binary of the current tree — see
+the next section.
 
 ## Build-to-build variance of the baseline (≈14 %)
 
 The same `socp.rs` + `solve.rs` + pinned `clarabel 0.11.1`, same iterations (21),
-same gain, but the IPM takes 2.11–2.14 s when `ocs_rs` is built from `bb8d90e`
-and 2.41–2.45 s when built from the current tree (fresh target directories;
-`lto = thin`, `fat` and `off` all give the latter). Bisected to the mere presence
+same gain, but the IPM takes 1.91 s (idle; 2.11–2.14 s loaded) when `ocs_rs` is
+built from `bb8d90e` and 2.16 s (idle; 2.41–2.45 s loaded) when built from the
+current tree (fresh target directories; `lto = thin`, `fat` and `off` all give the
+latter). Bisected to the mere presence
 of `src/packed.rs` in the compiled crate — code that this path never executes and
 that is not even linked into the `dump_ocs` binary — so it is a layout/codegen
 effect on Clarabel's factorisation, not a change in the work done. Consequences:
@@ -97,8 +100,9 @@ factorisation (308 s at n=5000, 2298 s at n=10000).
   program; an independent generator reproduces its optimum and per-iteration
   cost — out of the box once the factor's triangular pattern is declared. The
   active-set speed-ups of Table 1 are not an artefact of the baseline.
-- Not established: anything about n ≥ 2000 through the generator (memory), or
-  about idle-machine absolute times (see load caveat above).
+- Not established: anything about n ≥ 2000 through the generator (memory). The
+  idle re-run of 2026-09-20 17:22 (`idle` row above) confirms the loaded-machine
+  ratios; absolute times there are ~10 % lower.
 - Found on the way: the same session exposed a 4.6× regression in the dense
   support-Gram path of `support_first.rs` (commit `e10e2f0`), fixed in the same
   change as this file — see `research/REVISION.md`.

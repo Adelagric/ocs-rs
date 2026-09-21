@@ -234,8 +234,9 @@ slower; today's pair is 1.9× slower. Manuscript (EN+FR, Discussion) now reads: 
 less memory, identical optimum, *no faster* than the f64 stream — slower by a factor
 between 1.4 and 1.9 across our runs — because unpacking is compute-bound where the
 f64 stream is bandwidth-bound; packing is the memory enabler, not a speed-up. The
-Methods sentence already said "not an inner-loop speed-up when m>n". **To do: re-run
-`packed_bench` on an idle machine and replace the range by one number.** The packed
+Methods sentence already said "not an inner-loop speed-up when m>n". **Done, idle machine
+(2026-09-20 17:22, load 1.4): dense 2.845 / 2.860 / 2.845 s, packed 4.622 / 4.586 /
+4.693 s — packed is 1.6× slower; the manuscript now carries that number.** The packed
 kernel itself is unoptimised (scalar unpacking; ~1.6 G genotypes/s on 14 threads
 idle) — an open optimisation path, not a claim.
 

@@ -316,3 +316,22 @@ product by more); every comparison below is same-session and back to back.
   are dropped (left in: 3–5× slower). The same Clarabel build runs 14 % slower per
   iteration from a binary of this tree than from one of `bb8d90e` (2.41 vs 2.11 s at
   n=1000, same iterations) — a layout effect that bounds the n=1000 ratio of Table 1.
+
+### 2026-09-20 17:22 — the same series on an idle machine (load average 1.4)
+
+Run unattended by a load-triggered script once the day's external jobs had ended;
+same binaries as the loaded run above.
+
+- **packed_bench** (n=1194, m=52843, k=0.02, 3 runs): dense f64 **2.845 / 2.860 /
+  2.845 s**, packed **4.622 / 4.586 / 4.693 s** → packed is **1.6× slower** at 31.9×
+  less memory (0.61–0.62× the dense speed; under load it was 0.51–0.56×). The July
+  idle packed time (4.71 s) is reproduced; the July dense side (14.6 s) was the
+  regressed path.
+- **Table 1 rows, fixed tree**: n=1000 Clarabel 2.151 / 2.155 / 2.157 s,
+  support-first **1.442 / 1.434 / 1.439 s** (Table 1: 1.43 s), support 99;
+  n=2000 Clarabel 16.15 s, support-first **1.896 s** (Table 1: 1.90 s), support 112.
+  The table is reproduced to the hundredth of a second.
+- **Conic baseline binaries, n=1000** (3 runs each): current tree 2.154–2.163 s
+  (21 it, 103 ms/it); `bb8d90e` 1.897–1.918 s (21 it, 91 ms/it) — the ~13 % layout
+  gap persists idle; cvxgenrust with `dropzeros` 1.951–1.958 s (19 it, 103 ms/it),
+  as generated 5.45–5.46 s. Per-iteration cost identical to the current tree's.

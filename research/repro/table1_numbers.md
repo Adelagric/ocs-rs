@@ -48,7 +48,9 @@ optimum and the per-iteration cost at n=500 and n=1000 —
 **Regression note.** Between 2026-07-29 and 2026-09-20 (tag `v0.3.0` included) the
 support-first column was not reproducible: a refactor had made the support-Gram
 build stride through `Z` (7.5 s instead of 1.6 s at n=1000). Fixed; the fixed tree
-reproduces this table (1.65 s at n=1000 under load). REVISION.md has the details.
+reproduces this table exactly on an idle machine (2026-09-20 17:22: n=1000
+support-first 1.434 / 1.439 / 1.442 s, Clarabel 2.15 s; n=2000 support-first
+1.896 s, Clarabel 16.15 s, support 112). REVISION.md has the details.
 
 ## Loose cap (superseded headline, kept for the "~76000×" remark)
 
