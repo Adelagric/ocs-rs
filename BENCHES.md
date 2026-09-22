@@ -335,3 +335,21 @@ same binaries as the loaded run above.
   (21 it, 103 ms/it); `bb8d90e` 1.897–1.918 s (21 it, 91 ms/it) — the ~13 % layout
   gap persists idle; cvxgenrust with `dropzeros` 1.951–1.958 s (19 it, 103 ms/it),
   as generated 5.45–5.46 s. Per-iteration cost identical to the current tree's.
+
+### 2026-09-23 — PLINK `.bed` read straight into the packed store
+
+Apple M4 Max, rustc 1.98.1, release. Generated panel n=5000, m=50000, 1 % missing
+calls, `.bed` 62.5 MB (`cargo run --release --example plink_packed`). Peak RSS from
+`/usr/bin/time -l`, one route per process. **Not an idle machine** (load average ~12),
+which inflates the solve times — the memory figures are exact regardless.
+
+| route | held after read | peak RSS | read | solve | optimum |
+|---|---|---|---|---|---|
+| `read_panel` (dense f64 `Z`) | 2000.0 MB (32× the file) | **2.02 GB** | 0.64 s | 1.08 s | \|S\|=30 |
+| `read_packed` (2-bit) | 62.5 MB (1.00× the file) | **69 MB** | 0.44 s | 3.77 s | \|S\|=30, Δgain 7.1e-14 |
+
+Peak memory is the size of the file: 29× less than the dense route, on a panel where a
+dense `n×n` `G` would itself be 200 MB. The same optimum comes out of both, missing
+calls included. The packed solve remains the slower one (compute-bound unpacking
+against a bandwidth-bound f64 stream, as on the synthetic panels); this route is what
+makes a panel that does not fit solvable at all, not what makes a solve faster.

@@ -12,6 +12,11 @@
 //!   Z(Zᵀc)   = M·t − 2p·(pᵀt)                       (t = Zᵀc)
 //!   zᵢ·zⱼ    = Mᵢ·Mⱼ − 2rᵢ − 2rⱼ + 4‖p‖²             (a Gram entry)
 //!
+//! Three dosages need three of the four codes, so the fourth ([`MISSING`]) marks a
+//! missing call. It decodes to `M = 2p[j]`, i.e. `z = 0`: imputing a missing genotype
+//! to the marker mean, the convention the dense reader already uses, and exactly — the
+//! identities above are unchanged because they only ever need `M`.
+//!
 //! so the hot loops touch only the packed raw genotypes. This module provides the two
 //! primitives the active-set solver uses — the full product `G·c` and the restricted
 //! Gram entry `G_S[i,j]` — verified against the `f64` reference in the tests. Wiring it
@@ -21,7 +26,8 @@
 /// the fly. `G = ZZᵀ/s + ridge·I` with `Z = M − 2p`, `M` the raw dosages.
 pub struct PackedGeno {
     /// 2-bit genotypes, 4 per byte, column-major: candidate `i` of marker `j` lives in
-    /// byte `j·bytes_per_col + i/4`, bits `(i%4)·2`.
+    /// byte `j·bytes_per_col + i/4`, bits `(i%4)·2`. The code is the dosage itself,
+    /// or [`MISSING`]. Bits past candidate `n-1` in a column's last byte are zero.
     data: Vec<u8>,
     n: usize,
     m: usize,
@@ -36,7 +42,17 @@ pub struct PackedGeno {
     p_sq: f64,
 }
 
+/// The 2-bit code that is not a dosage; it marks a missing call, decoded as `2p[j]`.
+pub const MISSING: u8 = 0b11;
+
 impl PackedGeno {
+    /// Decoded dosages for one marker, indexed by the 2-bit code: `[0, 1, 2, 2p]`.
+    /// A per-marker constant, so the hot loops decode by lookup and never branch.
+    #[inline]
+    fn dosages(p_j: f64) -> [f64; 4] {
+        [0.0, 1.0, 2.0, 2.0 * p_j]
+    }
+
     /// Pack from any raw-genotype accessor `get(i, j) → {0,1,2}`, precomputing the
     /// centring scalars. `p` and `s` are the panel's allele frequencies and VanRaden
     /// scale (as the dense path already computes them).
@@ -49,13 +65,65 @@ impl PackedGeno {
     ) -> Self {
         let bytes_per_col = n.div_ceil(4);
         let mut data = vec![0u8; bytes_per_col * m];
+        for j in 0..m {
+            let base = j * bytes_per_col;
+            for i in 0..n {
+                data[base + (i >> 2)] |= (get(i, j) & 0b11) << ((i & 3) * 2);
+            }
+        }
+        Self::finalise(n, m, data, p, s)
+    }
+
+    /// Adopt genotypes already packed in this module's layout — 4 codes per byte,
+    /// column-major, `ceil(n/4)` bytes per marker, each code a dosage or [`MISSING`],
+    /// bits past candidate `n-1` zero — and derive the centring from them.
+    ///
+    /// This is the route a PLINK `.bed` takes ([`crate::plink::read_packed`]): that
+    /// file is this layout under a different code assignment, so a panel reaches the
+    /// solver through a byte remap, with no dense `Z` in between. Allele frequencies
+    /// are estimated from the non-missing calls of each marker (`p = 0` for a marker
+    /// with none), and `s = 2 Σ p(1−p)`, matching [`crate::plink::read_panel`].
+    ///
+    /// Returns `None` if `data` is not `ceil(n/4)·m` bytes.
+    pub fn from_raw_2bit(n: usize, m: usize, data: Vec<u8>) -> Option<Self> {
+        let bytes_per_col = n.div_ceil(4);
+        if data.len() != bytes_per_col * m {
+            return None;
+        }
+        let mut p = vec![0.0f64; m];
+        let mut s = 0.0f64;
+        for (j, pj) in p.iter_mut().enumerate() {
+            let base = j * bytes_per_col;
+            let (mut sum, mut observed) = (0.0f64, 0usize);
+            for i in 0..n {
+                let code = (data[base + (i >> 2)] >> ((i & 3) * 2)) & 0b11;
+                if code != MISSING {
+                    sum += code as f64;
+                    observed += 1;
+                }
+            }
+            // An all-missing marker carries no information: p = 0 leaves its column at
+            // 0 and contributes nothing to s, which is what dropping it would do.
+            *pj = if observed == 0 {
+                0.0
+            } else {
+                sum / (2.0 * observed as f64)
+            };
+            s += *pj * (1.0 - *pj);
+        }
+        Some(Self::finalise(n, m, data, p, 2.0 * s))
+    }
+
+    /// Precompute the centring scalars the identities need: `r[i] = p·M[i]` and `‖p‖²`.
+    fn finalise(n: usize, m: usize, data: Vec<u8>, p: Vec<f64>, s: f64) -> Self {
+        let bytes_per_col = n.div_ceil(4);
         let mut r = vec![0.0f64; n];
         for (j, &pj) in p.iter().enumerate() {
             let base = j * bytes_per_col;
+            let vals = Self::dosages(pj);
             for (i, ri) in r.iter_mut().enumerate() {
-                let g = get(i, j) & 0b11;
-                data[base + (i >> 2)] |= g << ((i & 3) * 2);
-                *ri += pj * g as f64;
+                let code = (data[base + (i >> 2)] >> ((i & 3) * 2)) & 0b11;
+                *ri += pj * vals[code as usize];
             }
         }
         let p_sq = p.iter().map(|x| x * x).sum();
@@ -82,11 +150,12 @@ impl PackedGeno {
         self.data.len()
     }
 
-    /// Raw dosage `M[i,j] ∈ {0,1,2}` as `f64`.
+    /// Raw dosage `M[i,j]`: the stored code, or `2p[j]` for a missing call.
     #[inline]
     fn get(&self, i: usize, j: usize) -> f64 {
         let byte = self.data[j * self.bytes_per_col + (i >> 2)];
-        ((byte >> ((i & 3) * 2)) & 0b11) as f64
+        let code = (byte >> ((i & 3) * 2)) & 0b11;
+        Self::dosages(self.p[j])[code as usize]
     }
 
     /// `G·c = ridge·c + Z(Zᵀc)/s`, matrix-free from the packed genotypes. `O(n·m)`.
@@ -114,10 +183,11 @@ impl PackedGeno {
                     for (dj, tj) in t_chunk.iter_mut().enumerate() {
                         let j = j0 + dj;
                         let base = j * this.bytes_per_col;
+                        let vals = Self::dosages(this.p[j]);
                         let mut acc = 0.0;
                         for (i, &ci) in c.iter().enumerate() {
                             let g = (this.data[base + (i >> 2)] >> ((i & 3) * 2)) & 0b11;
-                            acc += g as f64 * ci;
+                            acc += vals[g as usize] * ci;
                         }
                         *tj = acc - 2.0 * this.p[j] * sum_c;
                     }
@@ -137,10 +207,12 @@ impl PackedGeno {
                 scope.spawn(move || {
                     let j1 = (j0 + chunk).min(this.m);
                     for (dj, &tj) in t[j0..j1].iter().enumerate() {
-                        let base = (j0 + dj) * this.bytes_per_col;
+                        let j = j0 + dj;
+                        let base = j * this.bytes_per_col;
+                        let vals = Self::dosages(this.p[j]);
                         for (i, o) in part.iter_mut().enumerate() {
                             let g = (this.data[base + (i >> 2)] >> ((i & 3) * 2)) & 0b11;
-                            *o += g as f64 * tj;
+                            *o += vals[g as usize] * tj;
                         }
                     }
                 });

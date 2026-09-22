@@ -124,6 +124,23 @@ calls (missing ones imputed to the marker mean), so `panel.Z` and `panel.s` feed
 cross-checked on size, so mismatched files fail with a shape message instead of
 decoding shifted genotypes. VCF is not read: convert with `plink --vcf`.
 
+### The file is already the working representation
+
+`.bed` stores genotypes two bits each, four per byte, column-major — the layout the
+solver's packed store uses. `read_packed` therefore remaps the file's bytes and
+solves from those, expanding nothing:
+
+```rust
+let panel = ocs_rs::plink::read_packed(Path::new("cattle"))?;  // 2 bits per genotype
+let out = solve_sexed_packed(&panel.geno, 1e-5, &b, &male, k, 10_000, 1e-9);
+```
+
+On a 5000 × 50000 panel (`cargo run --release --example plink_packed`), peak resident
+memory is **69 MB against 2.02 GB** for the dense route, on a 62.5 MB file — the same
+optimum, to 7e-14 in gain, missing calls included (a missing genotype takes the fourth
+2-bit code and decodes to the marker mean exactly). The dense `f64` route stays the
+faster one per solve; this is the route that runs where the panel would not fit.
+
 ## Python
 
 The people who run OCS work in R and Python, not Rust — so the solver is callable

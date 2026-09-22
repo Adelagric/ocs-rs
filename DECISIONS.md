@@ -113,3 +113,26 @@ is ascending on both paths, so the Gram entries — and the optimum — are
 bit-identical across representations (`packed_solver_matches_dense`). Invariant to
 preserve: **whatever the operator, `G_S` must never be built by striding through a
 column-major `Z`.**
+
+## A PLINK `.bed` is the packed store, so it is read as one (2026-09-23)
+
+`src/packed.rs` holds genotypes 2-bit, 4 per byte, column-major, at byte
+`j·ceil(n/4) + i/4`, bits `(i%4)·2`. PLINK 1 SNP-major `.bed` holds them 2-bit, 4 per
+byte, one `ceil(n/4)`-byte block per marker, bits `(i%4)·2`. The layouts are the same;
+only the code assignment differs (`00`→2, `10`→1, `11`→0, `01`→missing). So
+`plink::read_packed` reads the genotype block once, applies a 256-entry byte LUT in
+place, blanks the padding slots past individual `n-1` (which would otherwise decode to
+a dosage of 2), and hands the buffer to `PackedGeno::from_raw_2bit`, which derives `p`
+and `s` from it. No dense matrix exists at any point: peak RSS is the file size.
+
+Missing calls decide the design. Three dosages need three codes, so the fourth is free;
+`MISSING` decodes to `M = 2p[j]`, i.e. `z = 0` — imputation to the marker mean, which is
+exactly what `read_panel` already does, so the two routes agree to machine precision
+rather than approximately. Rounding a missing call to the nearest dosage instead was
+measured at 5.6e-6 in gain on a 1 %-missing panel: rejected. The decode is a per-marker
+4-entry table `[0, 1, 2, 2p]` indexed by the code, so the hot loops gained a lookup and
+no branch; the alternative (a `has_missing` flag and two loop variants) was not needed.
+
+Invariant to preserve: **the padding slots of a column's last byte must be zero**, so
+that a panel packed through `from_getter` and the same panel read through `read_packed`
+are byte-identical. `n` not being a multiple of 4 is covered by a test.

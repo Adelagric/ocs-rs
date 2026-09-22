@@ -14,11 +14,18 @@
 //!   the centred column, the usual convention for VanRaden `G`.
 //! - Which allele the `.bim` calls A1 does not matter: flipping a marker's coding
 //!   negates its column of `Z`, and `Z Zᵀ = Σⱼ zⱼ zⱼᵀ` is invariant under that.
-//! - `Z` is dense `f64`: a genotype stored in 2 bits on disk occupies 64 in memory
-//!   (10 MiB → 320 MiB at n=40000, m=1000). That is the cost of the representation
-//!   the solver consumes, not an artefact of the reader.
+//! - [`read_panel`] returns a dense `f64` `Z`: a genotype stored in 2 bits on disk
+//!   occupies 64 in memory (10 MiB → 320 MiB at n=40000, m=1000). That is the cost of
+//!   that representation, not an artefact of the reader — and it is avoidable.
+//! - [`read_packed`] returns the panel in the solver's 2-bit store instead. The `.bed`
+//!   layout *is* that store under a different code assignment (4 genotypes per byte,
+//!   column-major, `ceil(n/4)` bytes per marker), so the file becomes the working
+//!   representation through a byte remap: memory is the size of the file, and no dense
+//!   matrix is ever formed. Both routes return the same optimum, missing calls
+//!   included.
 
 use crate::error::OcsError;
+use crate::packed::{MISSING, PackedGeno};
 use faer::Mat;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
@@ -107,25 +114,15 @@ fn read_bim(path: &Path) -> Result<usize, OcsError> {
     Ok(m)
 }
 
-/// Read `<prefix>.bed`, `<prefix>.bim` and `<prefix>.fam` into a centred panel.
-///
-/// The `.bed` length is checked against `n` and `m` before decoding, so a trio whose
-/// three files do not belong together fails with a shape message instead of reading
-/// shifted genotypes.
-pub fn read_panel(prefix: &Path) -> Result<Panel, OcsError> {
-    let fam_path = with_suffix(prefix, ".fam");
-    let bim_path = with_suffix(prefix, ".bim");
-    let bed_path = with_suffix(prefix, ".bed");
-
-    let ids = read_fam(&fam_path)?;
-    let n = ids.len();
-    let m = read_bim(&bim_path)?;
-
+/// Open `<prefix>.bed` for decoding: check its length against the `n` and `m` the
+/// `.fam` and `.bim` imply, check the magic, and leave the reader on the first
+/// genotype byte. Returns the reader and the bytes per marker.
+fn open_bed(bed_path: &Path, n: usize, m: usize) -> Result<(BufReader<File>, usize), OcsError> {
     // Rows are padded to whole bytes: 4 genotypes per byte, one row per marker.
     let row_bytes = n.div_ceil(4);
     let expected = 3 + (m as u64) * (row_bytes as u64);
-    let actual = std::fs::metadata(&bed_path)
-        .map_err(|e| io_err(&bed_path, e))?
+    let actual = std::fs::metadata(bed_path)
+        .map_err(|e| io_err(bed_path, e))?
         .len();
     if actual != expected {
         return Err(OcsError::Format(format!(
@@ -134,12 +131,12 @@ pub fn read_panel(prefix: &Path) -> Result<Panel, OcsError> {
         )));
     }
 
-    let file = File::open(&bed_path).map_err(|e| io_err(&bed_path, e))?;
+    let file = File::open(bed_path).map_err(|e| io_err(bed_path, e))?;
     let mut reader = BufReader::new(file);
     let mut magic = [0u8; 3];
     reader
         .read_exact(&mut magic)
-        .map_err(|e| io_err(&bed_path, e))?;
+        .map_err(|e| io_err(bed_path, e))?;
     if magic[0] != 0x6c || magic[1] != 0x1b {
         return Err(OcsError::Format(format!(
             "{}: not a PLINK .bed file (magic {:#04x} {:#04x})",
@@ -154,6 +151,102 @@ pub fn read_panel(prefix: &Path) -> Result<Panel, OcsError> {
             bed_path.display()
         )));
     }
+    Ok((reader, row_bytes))
+}
+
+/// PLINK's four 2-bit codes remapped to the packed store's, four at a time:
+/// `00` (hom A1) → dosage 2, `10` (het) → 1, `11` (hom A2) → 0, `01` → [`MISSING`].
+/// Nothing else differs between the two layouts, which is why [`read_packed`] is a
+/// byte remap rather than a decode.
+const fn bed_to_packed() -> [u8; 256] {
+    let mut lut = [0u8; 256];
+    let mut byte = 0usize;
+    while byte < 256 {
+        let mut out = 0u8;
+        let mut slot = 0;
+        while slot < 4 {
+            let code = ((byte >> (2 * slot)) & 0b11) as u8;
+            let packed = match code {
+                0b00 => 2,
+                0b10 => 1,
+                0b11 => 0,
+                _ => MISSING,
+            };
+            out |= packed << (2 * slot);
+            slot += 1;
+        }
+        lut[byte] = out;
+        byte += 1;
+    }
+    lut
+}
+
+/// A marker panel read straight into the solver's 2-bit store.
+pub struct PackedPanel {
+    /// Genotypes and the centring derived from them; hand it to
+    /// [`crate::support_first::solve_sexed_packed`].
+    pub geno: PackedGeno,
+    /// Individual IDs, in the `.fam` order, so a support can be reported by name.
+    pub ids: Vec<String>,
+}
+
+/// Read a PLINK trio into the packed store, forming no dense matrix.
+///
+/// The genotype block is read once and remapped in place, so peak memory is the size
+/// of the `.bed` file — 32× below what [`read_panel`] must hold for the same panel.
+/// Allele frequencies come from the non-missing calls, as they do there, and a missing
+/// call is imputed to its marker mean exactly (it decodes to `2p`, contributing `0` to
+/// the centred column), so both routes reach the same optimum.
+pub fn read_packed(prefix: &Path) -> Result<PackedPanel, OcsError> {
+    let ids = read_fam(&with_suffix(prefix, ".fam"))?;
+    let n = ids.len();
+    let m = read_bim(&with_suffix(prefix, ".bim"))?;
+    let bed_path = with_suffix(prefix, ".bed");
+    let (mut reader, row_bytes) = open_bed(&bed_path, n, m)?;
+
+    let mut data = vec![0u8; row_bytes * m];
+    reader
+        .read_exact(&mut data)
+        .map_err(|e| io_err(&bed_path, e))?;
+
+    let lut = bed_to_packed();
+    for byte in data.iter_mut() {
+        *byte = lut[*byte as usize];
+    }
+    // The padding slots past individual n-1 decode to a dosage of 2 under that remap;
+    // zero them, so the store holds exactly what packing the same panel would produce.
+    let tail = n % 4;
+    if tail != 0 {
+        let mask = (1u8 << (2 * tail)) - 1;
+        for j in 0..m {
+            data[j * row_bytes + row_bytes - 1] &= mask;
+        }
+    }
+
+    let geno = PackedGeno::from_raw_2bit(n, m, data).ok_or_else(|| {
+        OcsError::Format(format!(
+            "{}: packed genotypes have the wrong length",
+            bed_path.display()
+        ))
+    })?;
+    Ok(PackedPanel { geno, ids })
+}
+
+/// Read `<prefix>.bed`, `<prefix>.bim` and `<prefix>.fam` into a centred panel.
+///
+/// The `.bed` length is checked against `n` and `m` before decoding, so a trio whose
+/// three files do not belong together fails with a shape message instead of reading
+/// shifted genotypes. For large panels prefer [`read_packed`], which holds the same
+/// genotypes in 2 bits each instead of 64.
+pub fn read_panel(prefix: &Path) -> Result<Panel, OcsError> {
+    let fam_path = with_suffix(prefix, ".fam");
+    let bim_path = with_suffix(prefix, ".bim");
+    let bed_path = with_suffix(prefix, ".bed");
+
+    let ids = read_fam(&fam_path)?;
+    let n = ids.len();
+    let m = read_bim(&bim_path)?;
+    let (mut reader, row_bytes) = open_bed(&bed_path, n, m)?;
 
     let mut z = Mat::<f64>::zeros(n, m);
     let mut p = vec![0.0_f64; m];
@@ -260,6 +353,121 @@ mod tests {
         std::fs::write(with_suffix(&prefix, ".bed"), encode_bed(calls, n)).expect("write bed");
 
         Trio { dir, prefix }
+    }
+
+    /// `G·c` from a dense centred `Z`, written out from the definition so the packed
+    /// kernel is checked against arithmetic that shares no code with it.
+    fn dense_g_matvec(z: faer::MatRef<'_, f64>, s: f64, ridge: f64, c: &[f64]) -> Vec<f64> {
+        let (n, m) = (z.nrows(), z.ncols());
+        let t: Vec<f64> = (0..m)
+            .map(|j| (0..n).map(|i| z[(i, j)] * c[i]).sum::<f64>())
+            .collect();
+        (0..n)
+            .map(|i| ridge * c[i] + (0..m).map(|j| z[(i, j)] * t[j]).sum::<f64>() / s)
+            .collect()
+    }
+
+    /// The two routes out of one `.bed` must agree exactly: same kinship, same
+    /// optimum. `n = 6` is not a multiple of 4, so every marker's last byte carries
+    /// padding the packed route has to blank rather than read as a dosage, and two
+    /// markers carry missing calls, which it must impute to the marker mean the way
+    /// the dense route does.
+    #[test]
+    fn packed_route_matches_dense_route() {
+        let n = 6;
+        let calls: Vec<Vec<Option<u8>>> = vec![
+            vec![Some(0), Some(1), Some(2), Some(1), Some(0), Some(2)],
+            vec![Some(2), None, Some(1), Some(0), Some(2), Some(1)],
+            vec![Some(1), Some(1), Some(0), Some(2), Some(1), Some(0)],
+            vec![Some(0), Some(2), None, Some(1), None, Some(2)],
+            vec![Some(2), Some(0), Some(1), Some(1), Some(2), Some(0)],
+        ];
+        let trio = write_trio("packed_vs_dense", &calls, n);
+        let dense = read_panel(&trio.prefix).expect("dense read");
+        let packed = read_packed(&trio.prefix).expect("packed read");
+
+        assert_eq!(packed.geno.n(), dense.n);
+        assert_eq!(packed.geno.m(), dense.m);
+        assert_eq!(packed.ids, dense.ids);
+        // The store is the genotype block of the file itself, byte for byte.
+        assert_eq!(packed.geno.packed_bytes(), n.div_ceil(4) * calls.len());
+
+        let ridge = 1e-5;
+        let c: Vec<f64> = (0..n).map(|i| 0.05 + 0.1 * i as f64).collect();
+        let want = dense_g_matvec(dense.z.as_ref(), dense.s, ridge, &c);
+        let got = packed.geno.g_matvec(&c, ridge);
+        for (i, (&w, &g)) in want.iter().zip(&got).enumerate() {
+            assert!((w - g).abs() < 1e-12, "G·c[{i}]: dense {w}, packed {g}");
+        }
+        for i in 0..n {
+            for j in 0..n {
+                let w = {
+                    let raw: f64 = (0..dense.m)
+                        .map(|l| dense.z[(i, l)] * dense.z[(j, l)])
+                        .sum();
+                    raw / dense.s + if i == j { ridge } else { 0.0 }
+                };
+                let g = packed.geno.gram_entry(i, j, ridge);
+                assert!((w - g).abs() < 1e-12, "G[{i},{j}]: dense {w}, packed {g}");
+            }
+        }
+
+        let male: Vec<bool> = (0..n).map(|i| i % 2 == 0).collect();
+        let b = [0.9_f64, 0.4, 0.7, 0.1, 0.5, 0.8];
+        let mean_diag: f64 = (0..n)
+            .map(|i| (0..dense.m).map(|l| dense.z[(i, l)].powi(2)).sum::<f64>() / dense.s)
+            .sum::<f64>()
+            / n as f64;
+        let k = 0.6 * mean_diag;
+        let from_dense = crate::support_first::solve_sexed(
+            dense.z.as_ref(),
+            dense.s,
+            ridge,
+            &b,
+            &male,
+            k,
+            10_000,
+            1e-10,
+        );
+        let from_packed = crate::support_first::solve_sexed_packed(
+            &packed.geno,
+            ridge,
+            &b,
+            &male,
+            k,
+            10_000,
+            1e-10,
+        );
+        assert_eq!(from_dense.status, from_packed.status);
+        assert_eq!(from_dense.support, from_packed.support);
+        assert!(
+            (from_dense.gain - from_packed.gain).abs() < 1e-12,
+            "gain: dense {}, packed {}",
+            from_dense.gain,
+            from_packed.gain
+        );
+    }
+
+    /// A panel whose markers are entirely missing has no frequencies to estimate; the
+    /// packed route must survive it the way the dense one does (`p = 0`, zero column).
+    #[test]
+    fn packed_route_handles_an_all_missing_marker() {
+        let n = 4;
+        let calls: Vec<Vec<Option<u8>>> = vec![
+            vec![Some(0), Some(1), Some(2), Some(1)],
+            vec![None, None, None, None],
+            vec![Some(2), Some(0), Some(1), Some(1)],
+        ];
+        let trio = write_trio("packed_all_missing", &calls, n);
+        let dense = read_panel(&trio.prefix).expect("dense read");
+        let packed = read_packed(&trio.prefix).expect("packed read");
+        let ridge = 1e-5;
+        let c = [0.3_f64, 0.1, 0.4, 0.2];
+        let want = dense_g_matvec(dense.z.as_ref(), dense.s, ridge, &c);
+        let got = packed.geno.g_matvec(&c, ridge);
+        for (&w, &g) in want.iter().zip(&got) {
+            assert!((w - g).abs() < 1e-12, "dense {w}, packed {g}");
+        }
     }
 
     #[test]
