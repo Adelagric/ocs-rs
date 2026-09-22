@@ -239,7 +239,8 @@ so the credit is visible from the README alone.
   [arXiv:2609.13875](https://doi.org/10.48550/arXiv.2609.13875). Used to
   independently reconstruct the Clarabel baseline from the CVXPY formulation;
   what we learned doing so is reported upstream as
-  [dxogrp/cvxgenrust#1](https://github.com/dxogrp/cvxgenrust/issues/1).
+  [dxogrp/cvxgenrust#1](https://github.com/dxogrp/cvxgenrust/issues/1), addressed
+  in cvxgenrust 0.1.1.
 - **Clarabel** — Paul Goulart & Yuwen Chen, [clarabel.org](https://clarabel.org).
   The conic interior-point oracle every optimum is checked against.
 - **faer** — Sarah Quiñones, [github.com/sarah-quinones/faer-rs](https://github.com/sarah-quinones/faer-rs).

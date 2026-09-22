@@ -94,6 +94,21 @@ code-generation route is unavailable at the population sizes of Table 1's upper
 rows, where the generated solver would in any case run the same O(n³)
 factorisation (308 s at n=5000, 2298 s at n=10000).
 
+## Follow-up upstream
+
+Reported as [dxogrp/cvxgenrust#1](https://github.com/dxogrp/cvxgenrust/issues/1)
+(2026-09-20). The maintainer answered with PR #2, merged 2026-09-22 and released as
+**cvxgenrust 0.1.1** the same day: a "Structured parameters" section in the README
+(declare `sparsity=`; a dense declaration "can increase generated code size and
+solver work"), and self-describing metadata — `ParameterInfo.shape` keeps the
+logical shape and a new `layout` field carries the packing rule
+(`ParameterLayout::Sparse(SparseParameterPattern::LowerTriangle)`, documented as
+"NumPy `tril_indices` order, row by row"). Re-generated and re-run here with 0.1.1
+(n=500, triangular declaration): same `A` nnz (126 252, no explicit zeros), same
+optimum, 0.250 s / 19 iterations; the row-major packing our driver uses is now the
+documented one. The paper's numbers remain those of 0.1.0, which is what the
+reference cites.
+
 ## What this does and does not establish
 
 - Established: the Table-1 baseline is a correctly assembled Clarabel cone
