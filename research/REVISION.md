@@ -259,3 +259,43 @@ ratio of Table 1 and nothing else. Table 1 used the faster (conservative) binary
 Also fixed: `repro.sh` step 3 ran `compare` at the default loose cap (`--k-frac 0.6`),
 not the operational cap the manuscript's Table 1 reports (`--m 20000 --k-frac 0.017`);
 `table1_numbers.md` now carries both regimes with their provenance.
+
+## Baseline provenance audit (2026-09-23)
+
+Prompted by a survey of what else is publicly runnable in this problem family.
+
+**optiSel was archived from CRAN on 2026-09-17**, six days ago — "as issues were not
+corrected in time". The check-results archive for that same day reports **`OK` on all
+thirteen flavours**, `r-release-macos-arm64` included, so this is a packaging lapse,
+not a solver defect, and the benchmarked version (2.1.0, 2026-02-19 — the one measured
+throughout) is unchanged and still installable from the CRAN archive. Two consequences,
+both applied: the manuscript now pins the version and states the archival (a reviewer
+will look the package up and find a removal notice), and `REPRODUCE.md` no longer tells
+the reader to run `install.packages("optiSel")`, which stopped working — it gives the
+archive URL. optiSel's dependencies (`optiSolve` 1.0.1, `ECOSolveR` 0.6.1) are alive,
+and its solver backend is byte-identical between 2.0.9 and 2.1.0, so nothing about the
+comparison moves.
+
+**The AlphaMate caveat is right, and now it is verifiable.** The manuscript said the
+source is "locked to an Intel toolchain", which was an inference. Tested here with
+GNU Fortran 15.2 on Apple Silicon against the checked-out source: `findMKL.cmake` does
+*not* mark MKL `REQUIRED`, but `src/CMakeLists.txt:30` links `${MKL_MIX}`
+unconditionally, so with MKL absent CMake fails at the **generate** step —
+`MKL_BLAS_LIB`, `MKL_CORE_LIB`, `MKL_ILP_LIB`, `MKL_LAPACK_LIB` and `MKL_THREAD_LIB`
+are `NOTFOUND` — before a single file is compiled. Intel MKL has no Apple Silicon
+release. So the binary-under-emulation route was not a shortcut, and the manuscript now
+says exactly why, in terms anyone can re-check. (Patching their `CMakeLists.txt` to link
+Accelerate instead would make a native build conceivable, but it would change the linear
+algebra under a timing comparison, and is not done.)
+
+**Still open, and worth more than either**: `COMA` (Endelman, *Genetics* 229(2):iyae193,
+2025; github.com/jendelman/COMA, GPL-3) solves a strict superset of our problem —
+`max h'y` under `y'Ky ≤ Ft1`, sum-to-one, per-sex equality, arbitrary extra linear
+constraints and `min ≤ y ≤ max` — through CVXR/ECOS, and installs natively on Apple
+Silicon in minutes. That is a *second exact domain solver*, which the reviews said we
+lacked; ECOS is another conic IPM rather than a different algorithm class, but it is an
+independent implementation by an independent group, published in the field's journal.
+Two cheaper cross-checks alongside it: `robustocs` (Fogg/Gorjanc, MIT, HiGHS backend)
+ships n=50/1000 fixtures *with published reference solutions*, and `GOCSMA` (Waldmann
+2025, JuMP/Julia) is a one-line optimizer swap away from Ipopt or Hypatia, i.e. an
+exact check from a different algorithm class entirely.

@@ -30,7 +30,13 @@ benchmarks read those by `n`.
 - **Rust** (stable) — the crate; `cargo run --release` builds the examples.
 - **Python 3** with `numpy`, `scipy`, `matplotlib`.
 - **R** with `BGLR` (wheat + mouse data) and `optiSel` (the exact baseline).
-  `install.packages(c("BGLR","optiSel","data.table"))`.
+  `install.packages(c("BGLR","data.table"))`.
+  optiSel was archived from CRAN on 2026-09-17, so `install.packages("optiSel")` no
+  longer resolves; the benchmarked version installs from the archive:
+  `install.packages("https://cran.r-project.org/src/contrib/Archive/optiSel/optiSel_2.1.0.tar.gz", repos = NULL, type = "source")`
+  (its dependencies — `optiSolve`, `ECOSolveR`, `quadprog` — are still on CRAN).
+  Every check flavour, `r-release-macos-arm64` included, was `OK` on the day it was
+  archived, so this is a packaging matter, not a solver one.
 - *Optional:* Docker + Colima (Apple Silicon: `colima start --vm-type vz
   --vz-rosetta`) for AlphaMate.
 
