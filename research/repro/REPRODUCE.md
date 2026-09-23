@@ -16,6 +16,7 @@ AlphaMate), documented below.
 | `research/support_first_sex.py` | sexed support-first prototype (the NumPy oracle) |
 | `research/repro/sf_at_ub.py` | sexed support-first at an arbitrary kinship cap (frontier points) |
 | `research/repro/{wheat,mouse,pig}_export.R` | VanRaden GRM + EBV + sex → `/tmp/bench_{K,bc,ub}_{n}.{csv,txt}` |
+| `research/repro/coma_crosscheck.R` | second exact solver (COMA, Endelman 2025) vs ocs-rs on wheat + mouse |
 | `research/repro/synthetic_optisel.R` | structured-population synthetic optiSel benchmark |
 | `research/optisel_benchmark.R` | optiSel timing harness |
 | `alphamate/bench/make_alphamate_inputs.py` | OCS instance → AlphaMate input files |
@@ -37,6 +38,9 @@ benchmarks read those by `n`.
   (its dependencies — `optiSolve`, `ECOSolveR`, `quadprog` — are still on CRAN).
   Every check flavour, `r-release-macos-arm64` included, was `OK` on the day it was
   archived, so this is a packaging matter, not a solver one.
+- **R** with `COMA` for the second-exact-solver cross-check (`coma_crosscheck.R`):
+  `install.packages("CVXR"); remotes::install_github("jendelman/COMA")` — GPL-3, not on
+  CRAN, pure R, and its CVXR/ECOS stack has arm64 binaries.
 - *Optional:* Docker + Colima (Apple Silicon: `colima start --vm-type vz
   --vz-rosetta`) for AlphaMate.
 

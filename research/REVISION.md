@@ -299,3 +299,40 @@ Two cheaper cross-checks alongside it: `robustocs` (Fogg/Gorjanc, MIT, HiGHS bac
 ships n=50/1000 fixtures *with published reference solutions*, and `GOCSMA` (Waldmann
 2025, JuMP/Julia) is a one-line optimizer swap away from Ipopt or Hypatia, i.e. an
 exact check from a different algorithm class entirely.
+
+## The second exact solver exists, and it agrees (2026-09-23)
+
+The reviews' standing objection — optiSel is the only exact domain baseline, everything
+else is a heuristic — is answered. **COMA** (Endelman, *Genetics* 229(2):iyae193, 2025;
+`github.com/jendelman/COMA`, GPL-3, R + CVXR + ECOS) solves a strict superset of this
+problem: at ploidy 2 its constraint reduces to `y'Ky ≤ Ft1`, with sum-to-one, the
+per-sex equality, per-candidate bounds and arbitrary further linear constraints. With
+`K = sKin = G/2` the caps map as `k = 2·Ft1`, `Ft1 = dF + (1−dF)·Ft0` — so the same
+operating points can be handed to both solvers on the same matrix
+(`research/repro/coma_crosscheck.R`, artifact `artifacts/coma_crosscheck.csv`).
+
+| panel | ΔF | \|S\| ocs-rs / COMA | Δgain | max\|c−y\| | coancestry, % of cap: ocs-rs / COMA |
+|---|---|---|---|---|---|
+| wheat | 2 % | 51 / 51 | 3.5e-8 | 1.9e-5 | 100.00000 / 100.00001 |
+| wheat | 1 % | 109 / 110 | 4.3e-6 | 1.1e-5 | 100.00000 / 100.00137 |
+| wheat | 0.5 % | 226 / 231 | 2.9e-5 | 2.3e-5 | 100.00000 / 100.00968 |
+| mouse | 2 % | 47 / 47 | 1.3e-8 | 7.5e-7 | 100.00000 / 100.00006 |
+| mouse | 1 % | 89 / 90 | 7.0e-8 | 4.5e-6 | 100.00000 / 100.00041 |
+| mouse | 0.5 % | 182 / 183 | 7.4e-8 | 5.8e-6 | 100.00000 / 100.00045 |
+
+Same optimum, to five to eight significant figures, on real panels, from an independent
+implementation by an independent group. And the disagreement is instructive: ECOS stops
+just **outside** the cap and its entire gain excess is bought by that infeasibility,
+where optiSel stops just **inside** and leaves gain unclaimed. Support-first sits on the
+constraint to eight figures because it solves the active constraint rather than
+approaching it. Written into §3.1 (EN + FR) with Endelman 2025 added to the references.
+
+Timing is reported only in passing (COMA 2.6–51 s against 0.07–8.7 s on the same
+instances): it carries the same R/CVXR canonicalisation confound as the optiSel
+comparison, and the contribution here is exactness, not speed.
+
+Two cheaper checks remain open, and would widen the algorithm classes rather than repeat
+one: `robustocs` (Fogg/Gorjanc, MIT, HiGHS) ships n=50/1000 fixtures with published
+reference solutions — a ready-made regression harness; and `GOCSMA` (Waldmann 2025,
+JuMP) is one line away from Ipopt or Hypatia, i.e. an exact check from outside the conic
+interior-point family altogether.
