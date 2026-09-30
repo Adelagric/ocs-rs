@@ -251,6 +251,12 @@ Chaque limite indique une extension. Le c\oe ur en forme fermée par support adm
 
 Support-first fait une chose --- la sélection à contribution optimale exacte, à contrainte unique, continue --- à une échelle et une vitesse qui mettent l'OCS génomique à portée d'un ordinateur portable et d'un script reproductible. Cette affirmation étroite et vérifiée, et les extensions ouvertes qu'elle invite, constituent la contribution.
 
+\section*{Conflits d'intérêts}
+L'auteur ne déclare aucun conflit d'intérêts.
+
+\section*{Financement}
+Ce travail n'a bénéficié d'aucun financement externe.
+
 \section*{Disponibilité des données et du code}
 
 Le solveur support-first ainsi que tous les scripts de comparaison et de reproduction sont disponibles à \url{https://github.com/Adelagric/ocs-rs} (licence MIT) et archivés sur Zenodo (\url{https://doi.org/10.5281/zenodo.20746987}). Chaque tableau et figure est régénéré par \texttt{research/repro/repro.sh}, dont les étapes portent le nom du tableau ou de la figure qu'elles produisent ; une étape dont la chaîne d'outils ou le jeu de données manque est ignorée avec un message. Deux exceptions sont délibérées : le point $n=10000$ de Clarabel (Tableau~\ref{tab:clarabel}) ne s'exécute que sous \texttt{REPRO\_FULL=1} (Clarabel y demande ${\sim}26$ minutes), et la comparaison AlphaMate se lance manuellement depuis un binaire émulé. Les panels de marqueurs sont publics : les panels blé et souris sont fournis avec le paquet R BGLR (Pérez \& de los Campos 2014) ; le panel de porc PIC est le jeu de données commun de Cleveland, Hickey \& Forni (2012) (DOI 10.1534/g3.111.001453).
