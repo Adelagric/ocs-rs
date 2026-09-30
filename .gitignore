@@ -35,3 +35,6 @@ __pycache__/
 # cvxgenrust check: local venv, generated crates and instance dumps (reproducible via run.sh)
 /research/repro/cvxgenrust/artifacts/
 /research/repro/cvxgenrust/dump_ocs/target/
+
+# Reproduction step built out of tree
+/research/repro/pig_to_bed/target/

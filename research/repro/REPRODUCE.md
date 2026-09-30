@@ -16,6 +16,7 @@ AlphaMate), documented below.
 | `research/support_first_sex.py` | sexed support-first prototype (the NumPy oracle) |
 | `research/repro/sf_at_ub.py` | sexed support-first at an arbitrary kinship cap (frontier points) |
 | `research/repro/{wheat,mouse,pig}_export.R` | VanRaden GRM + EBV + sex → `/tmp/bench_{K,bc,ub}_{n}.{csv,txt}` |
+| `research/repro/pig_to_bed/` | real pig panel: packed `.bed` route vs dense, and the cost of rounding dosages |
 | `research/repro/coma_crosscheck.R` | second exact solver (COMA, Endelman 2025) vs ocs-rs on wheat + mouse |
 | `research/repro/synthetic_optisel.R` | structured-population synthetic optiSel benchmark |
 | `research/optisel_benchmark.R` | optiSel timing harness |

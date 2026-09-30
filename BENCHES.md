@@ -353,3 +353,23 @@ dense `n×n` `G` would itself be 200 MB. The same optimum comes out of both, mis
 calls included. The packed solve remains the slower one (compute-bound unpacking
 against a bandwidth-bound f64 stream, as on the synthetic panels); this route is what
 makes a panel that does not fit solvable at all, not what makes a solve faster.
+
+### 2026-09-30 — the packed route on the real PIC pig panel
+
+Apple M4 Max, release profile, load average ~7 (sizes and optima are exact; timings
+indicative). `research/repro/pig_to_bed`, the Cleveland–Hickey–Forni panel
+(n=3534, m=52843), one cap `k = 0.05 × mean diag G`.
+
+| representation | held | support | gain |
+|---|---|---|---|
+| raw imputed dosages, dense f64 | 1494.0 MB | 23 | 0.997436648 |
+| rounded to hard calls, dense f64 | 1494.0 MB | 23 | 0.997436469 |
+| rounded to hard calls, 2-bit packed | **46.7 MB** | 23 | 0.997436469 |
+
+32× less memory for the same optimum (packed vs dense-from-`.bed`: identical support,
+Δgain 4.1e-14). The representation's own cost is the rounding: **0.127 %** of this
+panel's 186.7 M values are fractional (it ships imputed dosages, and 2 bits hold hard
+calls only), which moves the gain by **1.8e-7** on an unchanged 23-individual support.
+A dense `n×n` G for this panel is 99.9 MB, so at this shape G is the cheap object and
+the packed store is about the panel, not the matrix — the crossover argument of the
+Methods, on real data.
