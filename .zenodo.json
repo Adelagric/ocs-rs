@@ -4,7 +4,10 @@
   "upload_type": "software",
   "license": "MIT",
   "creators": [
-    { "name": "Kaleche, Adel" }
+    {
+      "name": "Kaleche, Adel",
+      "orcid": "0009-0005-7566-1422"
+    }
   ],
   "keywords": [
     "optimum contribution selection",

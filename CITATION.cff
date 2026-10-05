@@ -10,10 +10,12 @@ type: software
 authors:
   - family-names: Kaleche
     given-names: Adel
+    orcid: "https://orcid.org/0009-0005-7566-1422"
 repository-code: "https://github.com/Adelagric/ocs-rs"
 license: MIT
-version: "0.1.0"
-date-released: "2026-06-18"
+doi: "10.5281/zenodo.20746987"
+version: "0.4.0"
+date-released: "2026-09-30"
 keywords:
   - optimum contribution selection
   - genomic selection
