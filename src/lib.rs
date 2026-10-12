@@ -1,11 +1,15 @@
 //! Exact, matrix-free Optimum Contribution Selection (OCS) at genomic scale.
 //!
 //! The contribution is [`support_first`]: an active-set / column-generation solver
-//! that exploits the tiny support of the OCS optimum, solves each fixed support in
+//! that works with an active support, solves each fixed support in
 //! closed form, and never forms the dense `n×n` relationship matrix (matrix-free
 //! `G·c` from the genotype matrix `Z`). It reaches the same optimum as a conic
-//! interior-point solver orders of magnitude faster; the sexed constraints
+//! interior-point solver within numerical tolerances on tested instances. Small
+//! support and speed gains depend on the instance and operating point; individual
+//! caps can force large supports. The sexed constraints
 //! (`Σ_males = Σ_females = ½`) and per-candidate caps `c ≤ u` are supported.
+//! With the additive relationship matrix `G = ZZᵀ/s + εI`, the solver bounds and
+//! returns `cᵀGc`; group coancestry uses `G/2` and is half that score.
 //!
 //! The project began as a go/no-go on the [Clarabel](https://clarabel.org) conic
 //! solver (verdict **GO**, see `REPORT.md`); Clarabel is retained as an independent

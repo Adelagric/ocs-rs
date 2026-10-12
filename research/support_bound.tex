@@ -39,7 +39,7 @@
 
 \title{\bfseries On the support size of the genomic OCS optimum}
 \author{\textbf{Adel Kaleche}\\[2pt] \small\itshape Independent researcher, France.}
-\date{}
+\date{11 October 2026}
 
 \begin{document}
 \maketitle
@@ -47,11 +47,11 @@
 \begin{abstract}
 \noindent
 A companion note to the support-first solver. For genomic optimum contribution selection
-(OCS) we bracket the size of the optimal support: a clean $n$-independent bound holds in the
+(OCS) we bracket the size of the optimal support: an existential $n$-independent total-support bound holds without effective caps in the
 no-ridge limit (Theorem~\ref{thm:eps0}), no universal bound survives the ridge
 (Theorem~\ref{thm:noridge}), and the practical regime between them is governed by the joint
-geometry of spectrum, breeding values and cap, admitting no single-scalar law. A KKT identity
-(Proposition~\ref{prop:kkt}) connects the two theorems. All empirical claims are reproducible.
+geometry of spectrum, breeding values and cap, with no reliable scalar predictor among those tested. A conditional KKT identity
+(Proposition~\ref{prop:kkt}) describes free contributions. Historical experiments are retained with context; scripts and prerequisites are listed below.
 \end{abstract}
 
 \section{The question}
@@ -65,99 +65,73 @@ genotype matrix, $s$ a scale, $\varepsilon$ a small ridge for positive-definiten
 where $\bA$ is the $q\times n$ budget matrix ($q=1$ for the simplex $\bone\tp\bc=1$; $q=2$ for
 the sexed form $\sum_{\text{males}} = \sum_{\text{females}} = \tfrac12$). Empirically the
 optimum $\bc^\star$ activates very few candidates: its support $S = \{i : c^\star_i > 0\}$ is
-$\approx 15$--$30$ on real panels and stays bounded as $n$ grows at a fixed cap. What bounds
+$\approx15$--$30$ in historical loose-cap real-panel runs. At the manuscript's operational contribution-proxy points it is tens to hundreds (mouse: 47/89/182 at $\Delta F=2/1/0.5\%$); the structured $n$-sweep gives roughly 80--103 at a fixed proxy point. These observations do not prove a universal bound. What bounds
 $|S|$?
 
-The answer is a \emph{bracket}. In the no-ridge limit there is a clean $n$-independent bound
+The answer is a \emph{bracket}. In the uncapped no-ridge case there is an existential $n$-independent bound
 (\S\ref{sec:eps0}); once the ridge is present there is provably no universal bound, the
 support reaching the whole population (\S\ref{sec:noridge}); and the practical regime between
-them is set by the joint geometry of $(\text{spectrum}, \bb, k)$, which admits no
-single-scalar law and which we map empirically (\S\ref{sec:empirical}). A KKT identity
-(\S\ref{sec:kkt}) bridges the two theorems.
+them is set by the joint geometry of $(\text{spectrum}, \bb, k)$, whose empirical map shows no reliable scalar predictor among those tested (\S\ref{sec:empirical}). A conditional KKT identity
+(\S\ref{sec:kkt}) describes free contributions.
 
 \section{The \texorpdfstring{$\varepsilon = 0$}{eps=0} bound}\label{sec:eps0}
 
 \begin{theorem}\label{thm:eps0}
-For $\varepsilon = 0$ (so $\bG = \bG_0 = \bZ\bZ\tp/s$ of rank $r \le m$),
-\eqref{eq:ocs} has an optimal $\bc^\star$ with $|S| \le q + r + 1$, independent of $n$.
-\end{theorem}
-
-\begin{proof}
-By strong duality (Slater holds at any interior-feasible instance) there is a multiplier
-$\lambda^\star \ge 0$ such that $\bc^\star$ maximises the Lagrangian
-$L(\bc) = \bb\tp\bc - \lambda^\star\,\bc\tp\bG_0\bc$ over the polytope
-$\{\bA\bc = \bd,\ \bc \ge 0\}$. Since $\bc\tp\bG_0\bc = \lVert\bZ\tp\bc\rVert^2/s$, the value
-$L(\bc)$ depends on $\bc$ only through the pair $(\bZ\tp\bc,\ \bb\tp\bc) \in \mathbb{R}^{r+1}$.
-Hence the slice
+Assume $\varepsilon=0$, $s>0$, nonempty feasibility, and simplex or sex-budget equalities so that $\{\bA\bc=\bd,\ \bc\ge0\}$ is bounded. With no effective upper caps, there exists an optimum with
 \[
-  P = \{\, \bc \ge 0 : \bA\bc = \bd,\ \bZ\tp\bc = \bZ\tp\bc^\star,\ \bb\tp\bc = \bb\tp\bc^\star \,\}
+ |S|\le\operatorname{rank}\!\begin{bmatrix}\bA\\\bZ\tp\\\bb\tp\end{bmatrix}\le q+r+1,
+ \qquad r=\operatorname{rank}(\bZ)\le m.
 \]
-is \emph{entirely optimal}: every $\bc \in P$ is feasible ($\bc\tp\bG_0\bc = \lVert\bZ\tp\bc^\star\rVert^2/s \le k$)
-and attains the optimal value $\bb\tp\bc^\star$. $P$ is nonempty (it contains $\bc^\star$) and
-bounded (the budget together with $\bc \ge 0$), and it is cut by $q + r + 1$ equality rows, so
-it has a vertex; a vertex of $\{\bc \ge 0 : \mathbf{M}\bc = \mathbf{e}\}$ with $q+r+1$ rows has
-at most $q + r + 1$ nonzeros. That vertex is an optimum with the stated support.
+\end{theorem}
+\begin{proof}
+Start with any attained optimum $\bc^\star$ and fix its image and objective in
+\[
+ P=\{\bc\ge0:\ \bA\bc=\bd,\ \bZ\tp\bc=\bZ\tp\bc^\star,\ \bb\tp\bc=\bb\tp\bc^\star\}.
+\]
+Every point has the same kinship $\|\bZ\tp\bc^\star\|^2/s$ and objective, hence is optimal. $P$ is nonempty and bounded. Let $M=[\bA;\bZ\tp;\bb\tp]$, of rank at most $q+r+1$. If a vertex had more than $\operatorname{rank}(M)$ positive coordinates, there would be a nonzero null direction supported on those coordinates. Two sufficiently small opposite perturbations preserve the equalities and nonnegativity, contradicting extremality. A vertex proves the bound. No duality or constraint qualification is required.
 \end{proof}
 
-This is the Carathéodory / Barvinok--Pataki idea applied correctly: one does \emph{not} count
-on the curved boundary of the ellipsoid (where, $\bG$ being positive definite, every point is
-already an extreme point of the feasible set, so the support is unconstrained) --- instead one
-\emph{fixes the low-rank image $\bZ\tp\bc$ and the objective}, which makes the optimal slice
-affine, and counts LP vertices there. Active-set solvers (support-first; the critical line
-algorithm) return such a vertex, whereas interior-point and ADMM solvers return non-sparse
-interior points and threshold post hoc --- so the bound describes precisely what an active-set
-solver computes.
+\textbf{Finite-cap extension.} Intersect $P$ with $\bc\le\bu$. A vertex has at most $\operatorname{rank}(M)$ \emph{free} coordinates $F=\{i:0<c_i<u_i\}$, by the same perturbation argument. Positive upper-bound coordinates $U_+=\{i:c_i=u_i>0\}$ also count, so $|S|=|F|+|U_+|\le\operatorname{rank}(M)+|U_+|$. Arbitrary finite caps preclude an $n$-independent total-support bound: $q=1$, $r=0$, $\bG=0$, $k=0$, $u_i=2/n$ force $|S|\ge\lceil n/2\rceil$, although $q+r+1=2$. Strictly decreasing $\bb$ attains that minimum at an optimal capped LP vertex.
+
+The theorem is an existence result about a vertex of an \emph{optimal slice}. The implemented active-set algorithm is not proved to return that vertex; no categorical conclusion about sparsity of interior-point or ADMM outputs follows. Enforcing the guarantee on arbitrary output would require separate vertex extraction.
 
 \section{No universal bound for \texorpdfstring{$\varepsilon > 0$}{eps>0}}\label{sec:noridge}
-
 \begin{theorem}\label{thm:noridge}
-For $\varepsilon > 0$ no bound on $|S|$ of the form $f(q, r)$ independent of $n$ exists: the
-support can equal $n$.
+For $\varepsilon>0$, no total-support bound $f(q,r)$ independent of $n$ exists, even without effective upper caps: the support can equal $n$.
 \end{theorem}
-
 \begin{proof}[Proof (counterexample)]
-Take $\bG = \varepsilon\mathbf{I}$ --- the degenerate case $m = 0$ (no markers, every pair
-equally unrelated; $\operatorname{rank}(\bG_0) = 0$). Then \eqref{eq:ocs}, simplex form, is
+Take the abstract OCS instance $q=1$, $\bG=\varepsilon\mathbf{I}$, $r=0$, $u_i=1$. This algebraic counterexample is not a usable marker panel for a public entry point. On the simplex $\|\bc\|^2\ge1/n$ by Cauchy--Schwarz. If any coordinate is zero, $\|\bc\|^2\ge1/(n-1)$. Thus for
 \[
-  \max\ \bb\tp\bc \quad\text{s.t.}\quad \bone\tp\bc = 1,\ \bc \ge 0,\ \varepsilon\lVert\bc\rVert^2 \le k,
+ \varepsilon/n<k<\varepsilon/(n-1),
 \]
-and $\lVert\bc\rVert^2 = \sum_i c_i^2$ is exactly the rate-of-inbreeding proxy. The minimum of
-$\lVert\bc\rVert^2$ on the simplex is $1/n$, attained only at the uniform plan $\bc = \bone/n$.
-For $k$ slightly above $\varepsilon/n$ the feasible set is the simplex intersected with a ball
-that shrinks onto $\bone/n$, forcing $|S| = n$. Numerically (\texttt{bound\_validation.py},
-block~7, $n = 300$): $|S| = 300, 295, 256, 151, 52, 12$ as $k$ loosens from $1.05\times$ to
-$50\times$ the minimum. So $|S|$ ranges over $[1, n]$ with no $n$-independent ceiling.
+the uniform plan is strictly kinship-feasible, while every feasible plan, and hence every optimum for any $\bb$, has full support. This holds for arbitrary $n\ge2$.
 \end{proof}
 
-Genetically, $\bG = \varepsilon\mathbf{I}$ is the \emph{no-structure} limit; with no relatedness
-pattern the diversity cap can be met only by spreading contributions over the whole population.
-The small support seen on real data is therefore a property of the \emph{structure} of $\bG$
-(and of $\bb$), not a worst-case guarantee.
+The historical sweep (\texttt{bound\_validation.py}, block 7, $n=300$) reported
+\[|S|=300,295,256,151,52,12,\]
+as $k$ relaxed from $1.05\times$ to $50\times$ the minimum. These are observations for one $\bb$; $1.05\times$ is outside the analytic full-support interval and is not a universal witness. Block 8 checks that interval and the finite-cap obstruction directly.
 
-\section{The bridge: a KKT identity}\label{sec:kkt}
+Here $\sum c_i^2$ measures concentration of contributions. With $N_e=1/\sum c_i^2$, $\Delta F=1/(2N_e)$ is a contribution-based proxy, not a measured rate of realised genomic inbreeding. Small observed support depends on the joint instance geometry, rather than a worst-case guarantee.
 
+\section{A conditional KKT identity}\label{sec:kkt}
 \begin{proposition}\label{prop:kkt}
-At an optimum with the kinship constraint active, the contributions on the support are an
-affine function of each candidate's augmented feature $(b_i, \bze_i) \in \mathbb{R}^{m+1}$
-($\bze_i$ the $i$-th row of $\bZ$): $\ c^\star_i = \alpha\,b_i + \bw\tp\bze_i + \beta_{\mathrm{sex}(i)}$
-for $i \in S$.
+Suppose $\varepsilon>0$ and an optimum admits KKT multipliers with $\lambda>0$ for kinship. On the free coordinates $F=\{i:0<c_i^\star<u_i\}$,
+\[
+ c_i^\star=\alpha b_i+\bw\tp\bze_i+v\tp a_i,\qquad i\in F,
+\]
+where $a_i$ is column $i$ of $\bA$. For sex-incidence budgets $v\tp a_i=\beta_{\mathrm{sex}(i)}$.
 \end{proposition}
-
 \begin{proof}
-KKT gives $\mu \in \mathbb{R}^q$, $\lambda \ge 0$, $\bs \ge 0$ with
-$\bb = \bA\tp\mu + 2\lambda\bG\bc^\star - \bs$ and $s_i c^\star_i = 0$. On $S$ ($s_i = 0$):
-$b_i = (\bA\tp\mu)_i + 2\lambda(\bG\bc^\star)_i$. Writing $\by := \bZ\tp\bc^\star$ and using
-$\bG\bc^\star = \bZ\by/s + \varepsilon\bc^\star$ gives, for $i \in S$,
-$\varepsilon c^\star_i = (b_i - (\bA\tp\mu)_i)/(2\lambda) - (\bze_i\tp\by)/s$, i.e.
-$c^\star_i = \alpha\,b_i + \bw\tp\bze_i + \beta_{\mathrm{sex}(i)}$ with $\alpha = 1/(2\lambda\varepsilon)$,
-$\bw = -\by/(s\varepsilon)$, $\beta_{\mathrm{sex}(i)} = -(\bA\tp\mu)_i/(2\lambda\varepsilon)$.
+Let $\ell,h\ge0$ be the lower and upper multipliers. Stationarity and complementarity are
+\[
+ \bb=\bA\tp\mu+2\lambda\bG\bc^\star-\ell+h,\qquad
+ \ell_i c_i^\star=0,\quad h_i(u_i-c_i^\star)=0,\quad
+ \lambda(\bc^{\star\top}\bG\bc^\star-k)=0.
+\]
+On $F$, both bound multipliers vanish. With $\by=\bZ\tp\bc^\star$ and $\bG\bc^\star=\bZ\by/s+\varepsilon\bc^\star$, division by $2\lambda\varepsilon$ gives $\alpha=1/(2\lambda\varepsilon)$, $\bw=-\by/(s\varepsilon)$, $v=-\mu/(2\lambda\varepsilon)$.
 \end{proof}
 
-The support's contributions thus live on an $(m+2)$-parameter family. As $\varepsilon \to 0$
-the $\varepsilon c^\star_i$ term vanishes and the identity forces $\bb - \bA\tp\mu$ into the
-rank-$r$ row space of $\bZ$, recovering Theorem~\ref{thm:eps0} and exhibiting $m$ (the marker
-count) as the relevant dimension. For $\varepsilon > 0$ the same identity does \emph{not} cap
-$|S|$, consistent with Theorem~\ref{thm:noridge}.
+The identity uses $m+q+1$ coefficients ($m+2$ for simplex, $m+3$ for two sex budgets). Active kinship alone does not imply $\lambda>0$. Existence of multipliers needs a suitable constraint qualification or a supplied certificate, and is assumed here. The identity does not apply to upper-bound coordinates and proves no cardinality bound. Taking $\varepsilon\to0$ cannot recover Theorem~\ref{thm:eps0}: multipliers and supports may change or diverge, and stationarity holds only on the current free coordinates. The slice proof is independent.
 
 \section{The empirical regime between the theorems}\label{sec:empirical}
 
@@ -182,21 +156,15 @@ $\bb$-alignments and caps and on the real panels:
   well resolved), with $\alpha \approx 1$ on both real panels but ranging $0.5$--$1.7$ across
   synthetic spectra and alignments (\texttt{bound\_curve.py}).
 \item \textbf{Real panels.} Wheat ($n = 599$) and mouse ($n = 1814$): $|S| = 25/26$ and $17/26$
-  (simplex / sexed-optiSel) at the working cap, both of order tens --- small and stable in $n$,
-  as the decaying-spectrum regime predicts qualitatively, though no formula pins the value
+  (simplex / sexed-optiSel) at the historical loose cap. These two fixed panels do not establish stability in $n$; operational targets in the manuscript have larger supports
   (\texttt{bound\_real.py}).
 \end{itemize}
 
-Theorem~\ref{thm:noridge} explains \emph{why} no scalar law exists: there is no universal bound
-to predict, so the practical value is a function of the full $(\text{spectrum}, \bb, k)$
-geometry.
+Theorem~\ref{thm:noridge} rules out a universal bound in $q,r$ alone. The empirical sweeps separately show that the scalar predictors tested here do not reliably predict support across regimes.
 
 \section{A conditional bound: the obstruction and the conjecture}
 
-The universal question is closed negatively (Theorem~\ref{thm:noridge}); the useful one is
-\emph{conditional}. Two clean bounds bracket the rest: at a \emph{loose cap} ($\bc\tp\bG\bc^\star < k$)
-the active set is the polytope $\{\bA\bc=\bd,\ \bc\ge0\}$ alone and $\bc^\star$ is an LP vertex, so
-$|S| \le q$; at \emph{exact rank} $d$, Theorem~\ref{thm:eps0} gives $|S| \le q + d + 1$.
+A conditional bound remains open. If the kinship constraint is \emph{redundant on the whole budget polytope}, an uncapped LP admits an optimal vertex with $|S|\le\operatorname{rank}(\bA)\le q$; finite caps instead give only $|F|\le\operatorname{rank}(\bA)$. Slack kinship at one optimum is insufficient: for constant $\bb$, $\bG=\mathbf{I}$ and $1/n<k<1/(n-1)$, the uniform optimum is slack but every feasible optimum has full support. For exact rank $r$ and $\varepsilon=0$, Theorem~\ref{thm:eps0} gives the uncapped existential bound and its finite-cap extension bounds free coordinates.
 
 A bound in terms of \emph{effective} rank --- the realistic ask, since real spectra decay --- does
 not follow from the same argument, and the obstruction is precise. Theorem~\ref{thm:eps0} linearises
@@ -205,10 +173,10 @@ one would have to pin all $n$ projections $u_i\tp\bc$, giving only the trivial $
 One cannot pin just the top-$d$ projections and drop the tail, because the tail contributes
 $\bc\tp E\bc = \sum_{i>d} \lambda_i (u_i\tp\bc)^2$ --- a \emph{genuine quadratic}, not a low-rank term
 --- so fixing it is not a linear constraint and the slice is not a polytope. The tail's curvature is
-exactly what lets the support spread; effective rank cannot enter a vertex count. A conditional bound
+exactly what lets the support spread; effective rank alone cannot replace exact rank in this vertex count. A conditional bound
 therefore needs a different (spectral-perturbation) argument.
 
-It also needs two assumptions, \emph{both necessary}:
+Two qualitative conditions motivate a possible conditional theorem; they are not quantitatively specified or proved sufficient:
 \begin{itemize}
 \item \textbf{(A1) No large degenerate cheap plateau.} A block of many near-equal small eigenvalues is
   a cheap subspace the optimum spreads into; $\bG = \varepsilon\mathbf{I}$ is the extreme case, giving
@@ -217,32 +185,32 @@ It also needs two assumptions, \emph{both necessary}:
   eigenvector forces dilution and a large support (mean $|S| \approx 146$ of $800$ in the alignment
   sweep).
 \end{itemize}
-Both counterexamples are established, so neither assumption can be dropped. Under (A1)+(A2) --- the
-regime of real genomic matrices, where $|S| \approx 15$--$30$ --- we conjecture $|S|$ is small and
-$n$-independent, of the order of the dominant eigendirections $\bb$ actually excites; the growth half
-($|S|$ rising as $k \to 0$) follows the
-contributions\,$\leftrightarrow\,\Delta F\,\leftrightarrow\,N_e$ link (Wray \& Thompson 1990;
+The pure-ridge counterexample and alignment sweep motivate (A1) and (A2), without proving necessity of these informal conditions. Under quantitative versions at a specified operating point we conjecture small support; the historical 15--30 values concern loose caps, not all real panels; the growth half
+($|S|$ rising as $k$ approaches its feasible minimum) follows the
+contribution-based $\Delta F=1/(2N_e)$ proxy, distinct from realised genomic inbreeding, in the context of the genetic contributions literature (Wray \& Thompson 1990;
 Woolliams \& Bijma 2000). Proving it --- coupling the spectral gap with $\bb$'s projection onto the
 top eigenspace, robust to the tail's curvature --- is the open problem, the meeting point of
 optimisation (the perturbed-cone face) and quantitative genetics (effective lineages).
 
 \textbf{An exact handle on the effective support.} Write the \emph{effective} number of contributors
 as the participation ratio $\mathrm{PR}(\bc^\star) = 1/\lVert\bc^\star\rVert^2$ (it equals $|S|$ for
-uniform contributions, less when uneven). At the active cap with $\bone\tp\bc^\star = 1$ an identity
+uniform contributions, less when uneven). At a positive active cap $k>0$ with $\bone\tp\bc^\star = 1$ an identity
 holds: $\mathrm{PR}(\bc^\star) = R(\bc^\star)/k$, where
 $R(\bc^\star) = \bc^{\star\top}\bG\bc^\star / \bc^{\star\top}\bc^\star$ is the optimum's own Rayleigh
 quotient (since $R\lVert\bc^\star\rVert^2 = \bc^{\star\top}\bG\bc^\star = k$). Hence
-$\mathrm{PR}(\bc^\star) \le \lambda_1/k$ unconditionally, and the conditional bound \emph{reduces to
-bounding} $R(\bc^\star)$ --- the directional coancestry cost the optimum is forced to incur. This is
-where (A2) bites: when $\bb$ avoids the dominant directions, $\bc^\star$ lives in the cheap part of the
-spectrum and $R(\bc^\star)$ is small (measured: $R \approx 0.02$--$0.4$ on the structured cases versus
+$\mathrm{PR}(\bc^\star) \le \lambda_1/k$ for every such active positive cap, and a bound on \emph{effective} support reduces to bounding $R(\bc^\star)$ --- the directional coancestry cost the optimum is forced to incur. This is
+where (A2) bites: the measured cases where $\bb$ avoids dominant directions have small $R(\bc^\star)$ (observed: $R \approx 0.02$--$0.4$ on the structured cases versus
 $\lambda_1 \approx 45$--$143$, giving $\mathrm{PR} \approx 2$--$12$), whereas $\bG = \varepsilon\mathbf{I}$
-forces $R = \varepsilon = \lambda_1$ and $\mathrm{PR} = n$. The residual open piece is now sharp and
-scalar --- bound $R(\bc^\star)$ a priori under (A1)+(A2). (The raw cardinality $|S|$ runs
-$\approx 1.5$--$2.5\times \mathrm{PR}$ here; $\mathrm{PR}$ is the quantity with the clean law.) Verified
+forces $R = \varepsilon = \lambda_1$. At an active cap, $\mathrm{PR}=\varepsilon/k$ lies in
+$(n-1,n)$ throughout the full-support interval $\varepsilon/n<k<\varepsilon/(n-1)$,
+and approaches $n$ as $k$ decreases to $\varepsilon/n$. Total support is already $n$
+throughout that interval; $\mathrm{PR}=n$ holds only for uniform contributions.
+For example, $n=3$ and $k=5\varepsilon/12$ give $|S|=3$ but $\mathrm{PR}=12/5$.
+The residual open piece is now sharp and
+scalar --- bound $R(\bc^\star)$ a priori under (A1)+(A2). (Historically $|S|$ ran $\approx1.5$--$2.5\times\mathrm{PR}$ in these cases. In general $\mathrm{PR}\le|S|$, so an upper bound on PR does not bound raw cardinality without another assumption on contribution sizes.) Verified
 in \texttt{bound\_kernel.py}.
 
-\textbf{Attacking this residual.} The unconstrained relaxation (drop $\bc \ge 0$) has a closed form,
+\textbf{Attacking this residual.} For positive-definite $\bG$, the simplex relaxation without lower or upper bounds has, in the active-kinship case with $\lambda>0$, the Rayleigh-quotient expression
 $R_{\mathrm{relax}} = (\beta\tp\bG^{-1}\beta)/(\beta\tp\bG^{-2}\beta)$ with $\beta = \bb - \mu\bone$ ---
 a $\lambda$-average weighted by $\beta_i^2/\lambda_i^2$, so small under (A2). But it predicts
 $R(\bc^\star)$ only when $\bc \ge 0$ is near-inactive: on the real panels the unconstrained optimum
@@ -257,8 +225,8 @@ relaxation formula) and the irreducible obstacle ($\bc \ge 0$) are now both iden
 % A run of unbreakable \texttt filenames; \emergencystretch alone cannot absorb it,
 % so let this paragraph stretch its interword space instead.
 \begin{sloppypar}
-\texttt{bound\_validation.py} (the $\varepsilon=0$ bound, $n$-independence, ridge and
-spectral-decay sweeps, and the Theorem~\ref{thm:noridge} counterexample);
+\texttt{bound\_validation.py} (ridged low-rank observations, not a test of the $\varepsilon=0$ vertex theorem, empirical $n$-sweep, ridge and
+spectral-decay sweeps, and the Theorem~\ref{thm:noridge} historical sweep, plus the analytic finite-cap and full-support witnesses in block 8);
 \texttt{bound\_real.py} (wheat and mouse, after \texttt{research/repro/*\_export.R});
 \texttt{bound\_balign.py} (the $\bb$-alignment sweep); \texttt{bound\_predictor.py} and
 \texttt{bound\_lawfit.py} (the predictor / law search); \texttt{bound\_curve.py} (the

@@ -2,6 +2,7 @@
 name = "ocsrs"
 version = "0.4.0"
 edition = "2021"
+rust-version = "1.85"
 description = "R bindings for the support-first genomic optimum contribution selection solver."
 license = "MIT"
 publish = false
@@ -21,6 +22,6 @@ extendr-api = "=0.9.0"
 faer = { version = "=0.24.0", default-features = false, features = ["linalg", "std", "rayon"] }
 ocs_rs = { path = "../../../.." }
 
-# Own workspace root: `R CMD INSTALL` builds this crate from a source tarball in
-# which the repository's workspace does not exist.
+# Own workspace root for R's build. The relative core dependency above requires
+# the full repository checkout; a standalone R package tarball is insufficient.
 [workspace]

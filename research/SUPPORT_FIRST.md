@@ -1,8 +1,12 @@
 # Support-first OCS — research note
 
 Status: **validated and written up — superseded by**
-[`MANUSCRIPT.tex`](MANUSCRIPT.tex), which carries the final numbers, the `c ≤ u`
-extension, and the Rust implementation. This note is kept as the development
+[`MANUSCRIPT.tex`](MANUSCRIPT.tex), which carries the current reported numbers, the `c ≤ u`
+extension, and the Rust implementation. The timings below are historical loose-cap
+experiments, not the current contribution-proxy operating-point comparison.
+Small support in these sweeps is empirical, not a universal bound or a guarantee
+under individual caps. AlphaMate also solves a different, discrete mating problem.
+This note is kept as the development
 log: the lead, the reduction, and how it was confirmed (synthetic → real wheat,
 pig, and mouse panels). Numbers below are reproducible with
 `python3 research/support_first.py`.
@@ -12,11 +16,11 @@ pig, and mouse panels). Numbers below are reproducible with
 The Clarabel spike (see top-level `REPORT.md`) returns a clean **GO**: the conic
 interior-point method solves genomic OCS reliably and exactly. But it is slow at
 scale — n=10000 takes ~30 min and 8.8 GB, because each of its ~17 iterations
-factors a dense `n×n` KKT system (O(n³)). Meanwhile the *answer* is tiny: at a
-moderate kinship bound the optimal contribution vector activates only **2–5**
+factors a dense `n×n` KKT system (O(n³)). Meanwhile the *answer* is tiny: at the historical
+loose kinship bound the optimal contribution vector activates only **2–5**
 candidates out of n. The IPM pays O(n³) to describe a solution that lives in a
 ~5-dimensional face. This note asks whether exploiting that sparsity breaks the
-wall — without giving up exactness (unlike the evolutionary heuristic AlphaMate).
+cost while retaining numerical optimality for the continuous problem.
 
 ## The reduction
 
@@ -120,7 +124,7 @@ conic solver, on *synthetic* data.** A specialised solver is expected to beat a
 generic one; the comparison that matters for the field is vs the domain tools
 (optiSel / AlphaMate / Gencont2) on *real* data, which is not done here.
 
-**`|S|` stays bounded** — the key scaling result. Worst regime tested
+**Small support in the historical synthetic sweep.** Worst regime tested
 (pedigree, EBV correlated to genotype, tight k), `|S|(n)`:
 
 | k fraction | n=500 | n=2000 | n=5000 | n=10000 |
@@ -129,10 +133,10 @@ generic one; the comparison that matters for the field is vs the domain tools
 | 0.15 (tight) | 11 | 12 | 12 | 11 |
 | 0.30 (moderate) | 5 | 4 | 7 | 5 |
 
-`|S|` is flat in `n` (it tracks the number of *effective lineages*, set by the
-population structure and the diversity demanded, not by candidate count). The
-product count is bounded likewise (~17 at k=0.15, ~50–60 at the tightest),
-independent of n.
+`|S|` is approximately flat across the tested sizes. These caps are absolute
+fractions of the mean diagonal, so the contribution-based operating point can
+change as n grows; this sweep does not prove an n-independent support bound.
+The observed product counts are ~17 at k=0.15 and ~50–60 at the tightest cap.
 
 ## Benchmark vs optiSel at scale — the test that matters
 
@@ -153,7 +157,9 @@ at:
 Two support-first columns (medians, idle M4 Max, one session; matrix-free & algorithm
 5×, optiSel 3×). **algorithm** = active set given a dense `G`, solve only (the regime
 optiSel runs in). **matrix-free** = shipped Rust solver, forms no `G`, end to end incl.
-the R-binding copy. Full provenance: `research/repro/table2_numbers.md`.
+the then-current R-binding copy (the current double-matrix binding borrows its
+buffer). This table predates the operational table in
+`research/repro/table2_numbers.md`.
 
 | dataset | n | m | algorithm | matrix-free | optiSel | algo× | shipped× |
 |---|---|---|---|---|---|---|---|

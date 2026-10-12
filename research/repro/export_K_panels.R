@@ -1,42 +1,31 @@
-# Export the dense kinship K (= sKin), bv and sex for wheat and mouse, so the
-# given-G active-set prototype (sf_operational_ne.py) can be timed at operational Ne
-# on the same instances. Same conventions as r_binding_real_panels.R.
-# Usage: Rscript research/repro/export_K_panels.R
-suppressMessages(library(BGLR))
-
-export_one <- function(n, sKin, bv, sx) {
-  write.table(sKin, sprintf("/tmp/bench_K_%d.csv", n), sep = ",",
-              row.names = FALSE, col.names = FALSE)
-  write.table(data.frame(bv = bv, oc = 0, sex = sx), sprintf("/tmp/bench_bc_%d.csv", n),
-              sep = ",", row.names = FALSE)
-  cat(sprintf("exported n=%d (m in the GRM only)\n", n))
+# Export the exact constructed R benchmark instance under a named panel key.
+# This file is sourced by the operational scripts; direct execution validates
+# their exports rather than rebuilding a second potentially different instance.
+export_panel <- function(panel, K, bv, sx, m, ridge = 1e-5) {
+  stopifnot(nrow(K) == length(bv), length(sx) == length(bv), all(is.finite(K)),
+            all(is.finite(bv)), all(sx %in% c("male", "female")))
+  kp <- file.path(repro_inputs, paste0(panel, "_K.csv"))
+  bp <- file.path(repro_inputs, paste0(panel, "_bc.csv"))
+  write.table(K, kp, sep = ",", row.names = FALSE, col.names = FALSE)
+  write.table(data.frame(bv = bv, oc = 0, sex = sx), bp, sep = ",", row.names = FALSE)
+  hashes <- c(K_md5 = unname(tools::md5sum(kp)), bc_md5 = unname(tools::md5sum(bp)))
+  write.csv(data.frame(panel = panel, n = length(bv), m = m,
+                      kinship_definition = "ZZt/(2s)+ridge*I", kinship_ridge = ridge,
+                      K_md5 = hashes[["K_md5"]], bc_md5 = hashes[["bc_md5"]]),
+            file.path(repro_inputs, paste0(panel, "_metadata.csv")), row.names = FALSE)
+  hashes
 }
 
-# wheat
-data(wheat)
-x <- wheat.X
-p <- colMeans(x)
-z <- sweep(x, 2, p)
-s <- sum(p * (1 - p))
-sKin <- (z %*% t(z)) / s / 2
-diag(sKin) <- diag(sKin) + 1e-5
-set.seed(1)
-sx <- rep(c("male", "female"), length.out = nrow(x))
-export_one(nrow(x), sKin, wheat.Y[, 1], sx)
-
-# mouse
-data(mice, package = "BGLR")
-x <- mice.X
-gender <- as.character(mice.pheno$GENDER)
-sx <- ifelse(gender %in% c("M", "Male", "male", "1"), "male", "female")
-bv <- as.numeric(mice.pheno$Obesity.BMI)
-ok <- !is.na(bv)
-x <- x[ok, ]
-sx <- sx[ok]
-bv <- bv[ok]
-p <- colMeans(x) / 2
-z <- sweep(x, 2, 2 * p)
-s <- 2 * sum(p * (1 - p))
-sKin <- tcrossprod(z) / s / 2
-diag(sKin) <- diag(sKin) + 1e-5
-export_one(nrow(x), sKin, bv, sx)
+if (sys.nframe() == 0L) {
+  source("research/repro/repro_common.R")
+  panels <- commandArgs(trailingOnly = TRUE)
+  if (!length(panels)) panels <- c("wheat", "mouse")
+  for (panel in panels) {
+    meta <- read.csv(file.path(repro_inputs, paste0(panel, "_metadata.csv")))
+    for (kind in c("K", "bc")) {
+      path <- file.path(repro_inputs, paste0(panel, "_", kind, ".csv"))
+      stopifnot(unname(tools::md5sum(path)) == meta[[paste0(kind, "_md5")]])
+    }
+    cat("validated exact export:", panel, "\n")
+  }
+}

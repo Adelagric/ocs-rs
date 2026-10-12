@@ -12,9 +12,11 @@ Description: Solves genomic optimum contribution selection exactly: maximise
     genotype matrix. PLINK binary panels are read directly.
 License: MIT + file LICENSE
 Encoding: UTF-8
-SystemRequirements: Cargo (Rust's package manager), rustc
+Depends: R (>= 4.2.0)
+SystemRequirements: Cargo (Rust's package manager), rustc (>= 1.85)
 Config/rextendr/version: 0.5.0
-RoxygenNote: 7.3.3
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0
+Config/roxygen2/markdown: TRUE

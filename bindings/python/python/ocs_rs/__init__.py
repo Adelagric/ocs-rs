@@ -1,25 +1,25 @@
 """Exact, matrix-free optimum contribution selection (OCS) at genomic scale.
 
-OCS maximises genetic gain ``bᵀc`` subject to a cap on the mean coancestry of the
-next generation, ``cᵀGc ≤ k``, with non-negative contributions summing to one (or,
+OCS maximises genetic gain ``bᵀc`` subject to a quadratic relationship bound
+``cᵀGc ≤ k``, with non-negative contributions summing to one (or,
 in the sexed form, to one half per sex). This package wraps the Rust `support-first`
-solver: it finds the tiny active support by column generation, solves each fixed
+solver: it finds the active support by column generation, solves each fixed
 support in closed form, and never forms the dense n×n relationship matrix — the
-kinship products come straight from the genotype matrix ``Z``.
+relationship products come straight from the genotype matrix ``Z``. Small support
+is empirical; individual caps can require large supports. With the additive
+relationship convention ``G = Z Zᵀ / s + ridge·I``, group coancestry is
+``cᵀ(G/2)c = quad/2`` and its bound is ``k/2``. This is not a realised offspring
+inbreeding rate.
 
-The result is the exact optimum (KKT-certified, not a heuristic) for continuous
-contributions under a single coancestry constraint.
-
-Example
--------
->>> import numpy as np, ocs_rs
->>> res = ocs_rs.solve(Z, b, k=0.03, s=s, male=male)   # Z: (n, m) centred genotypes
->>> res.support, res.gain
+The solver targets the optimum for continuous contributions under a single
+coancestry constraint, subject to its numerical termination tolerances. A complete
+runnable example is provided in the package README and examples/quickstart.py in
+the source checkout.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -34,6 +34,7 @@ class OcsResult:
     """Outcome of an OCS solve.
 
     ``c`` and ``gain`` are a usable optimum only when ``status == "Solved"``.
+    ``support`` contains 0-based NumPy indices.
     """
 
     c: np.ndarray
@@ -57,7 +58,11 @@ class OcsResult:
 
 @dataclass
 class Panel:
-    """A marker panel read from PLINK files, ready to hand to :func:`solve`."""
+    """Dense marker panel; ``ids`` contains IIDs in ``.fam`` row order.
+
+    FID and sex metadata are not returned. Align all external vectors to these
+    rows before handing ``Z`` to :func:`solve`.
+    """
 
     Z: np.ndarray
     p: np.ndarray
@@ -81,12 +86,16 @@ def read_plink(prefix) -> Panel:
 
     Genotypes are centred by twice the allele frequency estimated from the
     non-missing calls, and missing calls are imputed to the marker mean — so
-    ``panel.Z`` and ``panel.s`` go straight into :func:`solve`:
+    ``panel.Z`` and ``panel.s`` can be used by :func:`solve`:
 
     >>> panel = ocs_rs.read_plink("cattle")
-    >>> res = ocs_rs.solve(panel.Z, b, k=0.03, s=panel.s)
+    >>> panel.ids  # Align external breeding values, sex masks and caps to these IIDs.
 
     Only SNP-major ``.bed`` files are read (PLINK ≥ 1.9 writes those by default).
+    ``ids`` contains the IID column only; FID and ``.fam`` sex are not returned.
+    Preserve them separately and check IID uniqueness before matching. File
+    dimension checks do not verify identity or order agreement among the trio.
+    This reader returns a dense matrix; packed solving is Rust-only.
     """
     out = _rs.read_plink(str(prefix))
     # `out["z"]` is raw row-major float64 bytes; frombuffer views them without a copy,
@@ -126,24 +135,39 @@ def solve(
         Genotypes centred by twice the allele frequencies. The relationship matrix
         is ``G = Z Zᵀ / s + ridge·I``; it is never formed.
     b : array (n,)
-        Breeding values (the selection criterion).
+        Breeding values (the selection criterion), in exactly the row order of Z.
     k : float
-        Coancestry cap: the constraint is ``cᵀGc ≤ k``.
+        Quadratic relationship bound: ``cᵀGc ≤ k``. Group coancestry uses ``G/2``
+        and therefore has bound ``k/2``.
     s : float
         VanRaden scale ``2 Σ p(1-p)`` — see :func:`vanraden_scale`.
     ridge : float, optional
-        Small ridge making ``G`` positive definite (default 1e-5).
+        Positive ridge making ``G`` positive definite (default 1e-5). Its term
+        ``ridge * sum(c**2)`` is included in the quadratic relationship constraint.
     male : array (n,) of bool, optional
         Sex indicator. When given, the sexed form is solved
         (``Σ_males = Σ_females = ½``); otherwise the simplex form (``Σc = 1``).
+        Must be in the row order of Z; :func:`read_plink` does not return sex.
     caps : array (n,), optional
-        Per-candidate upper bounds ``c ≤ caps``. Omit for no caps.
+        Per-candidate upper bounds ``c ≤ caps``, in the row order of Z.
+        Omit for no caps.
     max_iter, tol : optional
         Active-set iteration cap and reduced-cost tolerance.
 
     Returns
     -------
     OcsResult
+        Check ``status == "Solved"`` before using the contributions as an optimum.
+        ``support`` contains 0-based indices; ``MaxIter`` has no optimality guarantee.
+
+    Notes
+    -----
+    This function accepts Z, not G. Passing G as Z would use
+    ``G @ G.T / s + ridge * I``. Arbitrary or modified relationship matrices
+    require an adapter/factorization that reproduces the intended operator.
+    Python makes dense copies of Z (contiguous float64, bytes, native layout).
+    Packed 2-bit solving is available only through Rust's ``read_packed`` and
+    ``solve_sexed_packed`` APIs.
     """
     Z = np.ascontiguousarray(Z, dtype=np.float64)
     if Z.ndim != 2:

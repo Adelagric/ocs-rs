@@ -43,7 +43,7 @@
 
 \title{\bfseries Sur la taille du support de l'optimum OCS génomique}
 \author{\textbf{Adel Kaleche}\\[2pt] \small\itshape Chercheur indépendant, France. \\ \small\itshape Version française ; note de référence en anglais.}
-\date{}
+\date{11 octobre 2026}
 
 \begin{document}
 \maketitle
@@ -51,12 +51,11 @@
 \begin{abstract}
 \noindent
 Note compagne du solveur support-first. Pour la sélection à contribution optimale (OCS)
-génomique, on encadre la taille du support optimal : une borne propre indépendante de $n$
-tient dans la limite sans ridge (Théorème~\ref{thm:eps0}), aucune borne universelle ne
+génomique, on encadre la taille du support optimal : une borne existentielle du support total indépendante de $n$
+tient sans plafonds effectifs dans la limite sans ridge (Théorème~\ref{thm:eps0}), aucune borne universelle ne
 survit au ridge (Théorème~\ref{thm:noridge}), et le régime pratique entre les deux est
-gouverné par la géométrie conjointe du spectre, des valeurs génétiques et du cap, sans loi
-scalaire unique. Une identité KKT (Proposition~\ref{prop:kkt}) relie les deux théorèmes.
-Toutes les affirmations empiriques sont reproductibles.
+gouverné par la géométrie conjointe du spectre, des valeurs génétiques et du cap, sans prédicteur scalaire fiable parmi ceux testés. Une identité KKT conditionnelle (Proposition~\ref{prop:kkt}) décrit les contributions libres.
+Les expériences historiques sont conservées avec leur contexte ; scripts et prérequis sont indiqués ci-dessous.
 \end{abstract}
 
 \section{La question}
@@ -70,102 +69,74 @@ génotypes centrés, $s$ une échelle, $\varepsilon$ un petit ridge assurant la 
 où $\bA$ est la matrice de budget $q\times n$ ($q=1$ pour le simplexe $\bone\tp\bc=1$ ; $q=2$
 pour la forme sexuée $\sum_{\text{mâles}} = \sum_{\text{femelles}} = \tfrac12$). Empiriquement
 l'optimum $\bc^\star$ active très peu de candidats : son support $S = \{i : c^\star_i > 0\}$
-est $\approx 15$--$30$ sur les panels réels et reste borné quand $n$ croît à cap fixé. Qu'est-ce
+était $\approx15$--$30$ dans les essais historiques à cap lâche. Aux points opérationnels du proxy de contributions du manuscrit, il va de quelques dizaines à quelques centaines (souris : 47/89/182 à $\Delta F=2/1/0{,}5\%$) ; le balayage structuré en $n$ donne environ 80--103 à proxy fixé. Ces observations ne prouvent pas de borne universelle. Qu'est-ce
 qui borne $|S|$ ?
 
-La réponse est un \emph{encadrement}. Dans la limite sans ridge, une borne propre indépendante
+La réponse est un \emph{encadrement}. Sans plafonds effectifs et sans ridge, une borne existentielle indépendante
 de $n$ existe (\S\ref{sec:eps0}) ; dès que le ridge est présent, il n'y a prouvablement aucune
 borne universelle, le support pouvant atteindre toute la population (\S\ref{sec:noridge}) ; et
 le régime pratique entre les deux est fixé par la géométrie conjointe de $(\text{spectre}, \bb, k)$,
-qui n'admet aucune loi scalaire unique et que l'on cartographie empiriquement
-(\S\ref{sec:empirical}). Une identité KKT (\S\ref{sec:kkt}) relie les deux théorèmes.
+dont la carte empirique ne fournit pas de prédicteur scalaire fiable parmi ceux testés
+(\S\ref{sec:empirical}). Une identité KKT conditionnelle (\S\ref{sec:kkt}) décrit les contributions libres.
 
 \section{La borne \texorpdfstring{$\varepsilon = 0$}{eps=0}}\label{sec:eps0}
 
 \begin{theoreme}\label{thm:eps0}
-Pour $\varepsilon = 0$ (donc $\bG = \bG_0 = \bZ\bZ\tp/s$ de rang $r \le m$),
-\eqref{eq:ocs} admet un optimum $\bc^\star$ avec $|S| \le q + r + 1$, indépendant de $n$.
-\end{theoreme}
-
-\begin{proof}
-Par dualité forte (Slater tient pour toute instance intérieurement réalisable), il existe un
-multiplicateur $\lambda^\star \ge 0$ tel que $\bc^\star$ maximise le lagrangien
-$L(\bc) = \bb\tp\bc - \lambda^\star\,\bc\tp\bG_0\bc$ sur le polytope
-$\{\bA\bc = \bd,\ \bc \ge 0\}$. Comme $\bc\tp\bG_0\bc = \lVert\bZ\tp\bc\rVert^2/s$, la valeur
-$L(\bc)$ ne dépend de $\bc$ qu'à travers le couple $(\bZ\tp\bc,\ \bb\tp\bc) \in \mathbb{R}^{r+1}$.
-Donc la tranche
+Supposons $\varepsilon=0$, $s>0$, un ensemble réalisable non vide et les budgets simplex ou sexués, de sorte que $\{\bA\bc=\bd,\ \bc\ge0\}$ est borné. Sans plafonds supérieurs effectifs, il existe un optimum vérifiant
 \[
-  P = \{\, \bc \ge 0 : \bA\bc = \bd,\ \bZ\tp\bc = \bZ\tp\bc^\star,\ \bb\tp\bc = \bb\tp\bc^\star \,\}
+ |S|\le\operatorname{rang}\!\begin{bmatrix}\bA\\\bZ\tp\\\bb\tp\end{bmatrix}\le q+r+1,
+ \qquad r=\operatorname{rang}(\bZ)\le m.
 \]
-est \emph{entièrement optimale} : tout $\bc \in P$ est réalisable ($\bc\tp\bG_0\bc = \lVert\bZ\tp\bc^\star\rVert^2/s \le k$)
-et atteint la valeur optimale $\bb\tp\bc^\star$. $P$ est non vide (il contient $\bc^\star$) et
-borné (le budget avec $\bc \ge 0$), et il est découpé par $q + r + 1$ lignes d'égalité ; il
-possède donc un sommet, et un sommet de $\{\bc \ge 0 : \mathbf{M}\bc = \mathbf{e}\}$ à $q+r+1$
-lignes a au plus $q + r + 1$ composantes non nulles. Ce sommet est un optimum de support annoncé.
+\end{theoreme}
+\begin{proof}
+Partons d'un optimum atteint $\bc^\star$ et figeons son image et son objectif dans
+\[
+ P=\{\bc\ge0:\ \bA\bc=\bd,\ \bZ\tp\bc=\bZ\tp\bc^\star,\ \bb\tp\bc=\bb\tp\bc^\star\}.
+\]
+Tout point a la même parenté $\|\bZ\tp\bc^\star\|^2/s$ et le même objectif : il est optimal. $P$ est non vide et borné. La matrice $M=[\bA;\bZ\tp;\bb\tp]$ est de rang au plus $q+r+1$. Un sommet avec plus de $\operatorname{rang}(M)$ coordonnées positives admettrait une direction non nulle du noyau portée par ces coordonnées. Deux petites perturbations opposées conserveraient égalités et positivité, contredisant son caractère extrême. Un sommet fournit la borne. Aucune dualité ni qualification de contraintes n'est requise.
 \end{proof}
 
-C'est l'idée de Carathéodory / Barvinok--Pataki appliquée correctement : on ne compte
-\emph{pas} sur la frontière courbe de l'ellipsoïde (où, $\bG$ étant définie positive, tout point
-est déjà un point extrême de l'ensemble réalisable, donc le support n'est pas borné) --- on
-\emph{fige plutôt l'image de bas rang $\bZ\tp\bc$ et l'objectif}, ce qui rend la tranche optimale
-affine, et on y compte les sommets LP. Les solveurs à ensemble actif (support-first ; l'algorithme
-de la ligne critique) renvoient un tel sommet, tandis que les solveurs à point intérieur et ADMM
-renvoient des points intérieurs non parcimonieux qu'ils seuillent a posteriori --- la borne porte
-donc précisément sur ce que calcule un solveur à ensemble actif.
+\textbf{Extension aux plafonds finis.} Intersectons $P$ avec $\bc\le\bu$. Un sommet a au plus $\operatorname{rang}(M)$ coordonnées \emph{libres} $F=\{i:0<c_i<u_i\}$, par le même argument. Les coordonnées $U_+=\{i:c_i=u_i>0\}$ comptent également, donc $|S|=|F|+|U_+|\le\operatorname{rang}(M)+|U_+|$. Des plafonds finis arbitraires interdisent une borne du support total indépendante de $n$ : $q=1$, $r=0$, $\bG=0$, $k=0$, $u_i=2/n$ imposent $|S|\ge\lceil n/2\rceil$, alors que $q+r+1=2$. Un $\bb$ strictement décroissant atteint ce minimum en un sommet LP optimal plafonné.
+
+Le théorème porte sur l'existence d'un sommet d'une \emph{tranche optimale}. Rien ne prouve que l'ensemble actif implémenté renvoie ce sommet, ni qu'un solveur à point intérieur ou ADMM ne puisse rendre une solution parcimonieuse. Imposer cette garantie à une sortie arbitraire nécessiterait une extraction séparée de sommet.
 
 \section{Aucune borne universelle pour \texorpdfstring{$\varepsilon > 0$}{eps>0}}\label{sec:noridge}
-
 \begin{theoreme}\label{thm:noridge}
-Pour $\varepsilon > 0$, aucune borne sur $|S|$ de la forme $f(q, r)$ indépendante de $n$
-n'existe : le support peut valoir $n$.
+Pour $\varepsilon>0$, aucune borne du support total $f(q,r)$ indépendante de $n$ n'existe, même sans plafonds effectifs : le support peut valoir $n$.
 \end{theoreme}
-
 \begin{proof}[Démonstration (contre-exemple)]
-Prenons $\bG = \varepsilon\mathbf{I}$ --- le cas dégénéré $m = 0$ (aucun marqueur, toute paire
-également non apparentée ; $\operatorname{rang}(\bG_0) = 0$). Alors \eqref{eq:ocs}, forme
-simplexe, devient
+Prenons l'instance OCS abstraite $q=1$, $\bG=\varepsilon\mathbf{I}$, $r=0$, $u_i=1$. Ce contre-exemple algébrique n'est pas un panel de marqueurs utilisable dans une interface publique. Sur le simplexe, $\|\bc\|^2\ge1/n$ par Cauchy--Schwarz. Si une coordonnée est nulle, $\|\bc\|^2\ge1/(n-1)$. Ainsi, pour
 \[
-  \max\ \bb\tp\bc \quad\text{s.c.}\quad \bone\tp\bc = 1,\ \bc \ge 0,\ \varepsilon\lVert\bc\rVert^2 \le k,
+ \varepsilon/n<k<\varepsilon/(n-1),
 \]
-et $\lVert\bc\rVert^2 = \sum_i c_i^2$ est exactement le proxy du taux de consanguinité. Le minimum
-de $\lVert\bc\rVert^2$ sur le simplexe est $1/n$, atteint uniquement au plan uniforme
-$\bc = \bone/n$. Pour $k$ légèrement supérieur à $\varepsilon/n$, l'ensemble réalisable est le
-simplexe intersecté avec une boule qui se contracte sur $\bone/n$, forçant $|S| = n$.
-Numériquement (\texttt{bound\_validation.py}, bloc~7, $n = 300$) : $|S| = 300, 295, 256, 151, 52, 12$
-quand $k$ se desserre de $1{,}05\times$ à $50\times$ le minimum. Donc $|S|$ parcourt $[1, n]$ sans
-plafond indépendant de $n$.
+le plan uniforme est strictement réalisable, mais tout plan réalisable, donc tout optimum pour n'importe quel $\bb$, a un support plein. Cela vaut pour tout $n\ge2$.
 \end{proof}
 
-Génétiquement, $\bG = \varepsilon\mathbf{I}$ est la limite \emph{sans structure} ; sans schéma
-d'apparentement, le cap de diversité ne peut être satisfait qu'en étalant les contributions sur
-toute la population. Le petit support observé sur données réelles est donc une propriété de la
-\emph{structure} de $\bG$ (et de $\bb$), pas une garantie de pire cas.
+L'ancien balayage (\texttt{bound\_validation.py}, bloc 7, $n=300$) donnait
+\[|S|=300,295,256,151,52,12,\]
+quand $k$ se desserrait de $1{,}05\times$ à $50\times$ le minimum. Ce sont des observations pour un $\bb$ ; $1{,}05\times$ est hors de l'intervalle analytique de support plein et n'est pas un témoin universel. Le bloc 8 vérifie cet intervalle et l'obstruction des plafonds finis.
 
-\section{Le pont : une identité KKT}\label{sec:kkt}
+Ici $\sum c_i^2$ mesure la concentration des contributions. Avec $N_e=1/\sum c_i^2$, $\Delta F=1/(2N_e)$ est un proxy fondé sur les contributions, pas un taux mesuré de consanguinité génomique réalisée. Le petit support observé dépend de la géométrie conjointe de l'instance.
 
+\section{Une identité KKT conditionnelle}\label{sec:kkt}
 \begin{proposition}\label{prop:kkt}
-À un optimum où la contrainte de parenté est active, les contributions sur le support sont une
-fonction affine du feature augmenté $(b_i, \bze_i) \in \mathbb{R}^{m+1}$ de chaque candidat
-($\bze_i$ la $i$-ème ligne de $\bZ$) : $\ c^\star_i = \alpha\,b_i + \bw\tp\bze_i + \beta_{\mathrm{sexe}(i)}$
-pour $i \in S$.
+Supposons $\varepsilon>0$ et un optimum disposant de multiplicateurs KKT avec $\lambda>0$ pour la parenté. Sur $F=\{i:0<c_i^\star<u_i\}$,
+\[
+ c_i^\star=\alpha b_i+\bw\tp\bze_i+v\tp a_i,\qquad i\in F,
+\]
+$a_i$ étant la colonne $i$ de $\bA$. Pour les budgets d'incidence de sexe, $v\tp a_i=\beta_{\mathrm{sexe}(i)}$.
 \end{proposition}
-
 \begin{proof}
-Les conditions KKT donnent $\mu \in \mathbb{R}^q$, $\lambda \ge 0$, $\bs \ge 0$ avec
-$\bb = \bA\tp\mu + 2\lambda\bG\bc^\star - \bs$ et $s_i c^\star_i = 0$. Sur $S$ ($s_i = 0$) :
-$b_i = (\bA\tp\mu)_i + 2\lambda(\bG\bc^\star)_i$. En posant $\by := \bZ\tp\bc^\star$ et en
-utilisant $\bG\bc^\star = \bZ\by/s + \varepsilon\bc^\star$, on obtient, pour $i \in S$,
-$\varepsilon c^\star_i = (b_i - (\bA\tp\mu)_i)/(2\lambda) - (\bze_i\tp\by)/s$, soit
-$c^\star_i = \alpha\,b_i + \bw\tp\bze_i + \beta_{\mathrm{sexe}(i)}$ avec $\alpha = 1/(2\lambda\varepsilon)$,
-$\bw = -\by/(s\varepsilon)$, $\beta_{\mathrm{sexe}(i)} = -(\bA\tp\mu)_i/(2\lambda\varepsilon)$.
+Avec les multiplicateurs inférieur et supérieur $\ell,h\ge0$, stationnarité et complémentarité sont
+\[
+ \bb=\bA\tp\mu+2\lambda\bG\bc^\star-\ell+h,\qquad
+ \ell_i c_i^\star=0,\quad h_i(u_i-c_i^\star)=0,\quad
+ \lambda(\bc^{\star\top}\bG\bc^\star-k)=0.
+\]
+Sur $F$, les deux multiplicateurs de borne s'annulent. Avec $\by=\bZ\tp\bc^\star$ et $\bG\bc^\star=\bZ\by/s+\varepsilon\bc^\star$, la division par $2\lambda\varepsilon$ donne $\alpha=1/(2\lambda\varepsilon)$, $\bw=-\by/(s\varepsilon)$, $v=-\mu/(2\lambda\varepsilon)$.
 \end{proof}
 
-Les contributions du support vivent donc sur une famille à $(m+2)$ paramètres. Quand
-$\varepsilon \to 0$, le terme $\varepsilon c^\star_i$ s'annule et l'identité force
-$\bb - \bA\tp\mu$ dans l'espace-ligne de rang $r$ de $\bZ$, ce qui retrouve le
-Théorème~\ref{thm:eps0} et fait apparaître $m$ (le nombre de marqueurs) comme la dimension
-pertinente. Pour $\varepsilon > 0$, la même identité ne borne \emph{pas} $|S|$, en accord avec le
-Théorème~\ref{thm:noridge}.
+L'identité comporte $m+q+1$ coefficients ($m+2$ en simplex, $m+3$ pour deux budgets sexués). Une parenté active ne suffit pas à imposer $\lambda>0$. L'existence des multiplicateurs exige une qualification appropriée ou un certificat fourni ; elle est supposée ici. L'identité ne s'applique pas aux coordonnées au plafond et ne borne aucune cardinalité. Le passage $\varepsilon\to0$ ne retrouve pas le Théorème~\ref{thm:eps0} : supports et multiplicateurs peuvent changer ou diverger, et la stationnarité ne vaut que sur les coordonnées actuellement libres. La preuve par tranche optimale est indépendante.
 
 \section{Le régime empirique entre les théorèmes}\label{sec:empirical}
 
@@ -192,22 +163,14 @@ réels :
   est bien résolu), avec $\alpha \approx 1$ sur les deux panels réels mais variant de $0{,}5$ à
   $1{,}7$ selon les spectres et alignements synthétiques (\texttt{bound\_curve.py}).
 \item \textbf{Panels réels.} Blé ($n = 599$) et souris ($n = 1814$) : $|S| = 25/26$ et $17/26$
-  (simplexe / optiSel sexé) au cap de travail, tous deux de l'ordre de la dizaine --- petits et
-  stables en $n$, comme le régime à spectre décroissant le prédit qualitativement, sans qu'aucune
-  formule n'en fixe la valeur (\texttt{bound\_real.py}).
+  (simplexe / optiSel sexé) au cap historique lâche. Ces deux panels fixes ne prouvent pas une stabilité en $n$ ; les cibles opérationnelles du manuscrit ont des supports plus grands (\texttt{bound\_real.py}).
 \end{itemize}
 
-Le Théorème~\ref{thm:noridge} explique \emph{pourquoi} aucune loi scalaire n'existe : il n'y a pas
-de borne universelle à prédire, donc la valeur pratique est une fonction de la géométrie complète
-$(\text{spectre}, \bb, k)$.
+Le Théorème~\ref{thm:noridge} exclut une borne universelle en $q,r$ seuls. Les balayages empiriques montrent séparément que les prédicteurs scalaires testés ne prédisent pas le support de façon fiable entre régimes.
 
 \section{Une borne conditionnelle : l'obstruction et la conjecture}
 
-La question universelle est close négativement (Théorème~\ref{thm:noridge}) ; la question utile est
-\emph{conditionnelle}. Deux bornes propres encadrent le reste : à \emph{cap lâche}
-($\bc\tp\bG\bc^\star < k$) l'ensemble actif est le seul polytope $\{\bA\bc=\bd,\ \bc\ge0\}$ et
-$\bc^\star$ est un sommet LP, donc $|S| \le q$ ; à \emph{rang exact} $d$, le Théorème~\ref{thm:eps0}
-donne $|S| \le q + d + 1$.
+Une borne conditionnelle reste ouverte. Si la contrainte de parenté est \emph{redondante sur tout le polytope budgétaire}, un LP non plafonné admet un sommet optimal de support $|S|\le\operatorname{rang}(\bA)\le q$ ; les plafonds finis donnent seulement $|F|\le\operatorname{rang}(\bA)$. Une parenté non saturée en un optimum ne suffit pas : pour $\bb$ constant, $\bG=\mathbf{I}$ et $1/n<k<1/(n-1)$, l'optimum uniforme est strictement réalisable mais tout optimum réalisable a un support plein. Au rang exact $r$ et à $\varepsilon=0$, le Théorème~\ref{thm:eps0} donne la borne existentielle non plafonnée ; son extension borne les coordonnées libres.
 
 Une borne en \emph{rang effectif} --- l'objectif réaliste, puisque les vrais spectres décroissent ---
 ne découle pas du même argument, et l'obstruction est précise. Le Théorème~\ref{thm:eps0} linéarise la
@@ -220,7 +183,7 @@ un polytope. La courbure de la queue est exactement ce qui laisse le support s'�
 effectif ne peut pas entrer dans un comptage de sommets. Une borne conditionnelle exige donc un autre
 argument (perturbation spectrale).
 
-Elle exige aussi deux hypothèses, \emph{toutes deux nécessaires} :
+Deux conditions qualitatives motivent un éventuel théorème conditionnel ; elles ne sont ni quantitativement spécifiées ni prouvées suffisantes :
 \begin{itemize}
 \item \textbf{(A1) Pas de grand plateau dégénéré bon marché.} Un bloc de nombreuses petites valeurs
   propres quasi-égales est un sous-espace bon marché où l'optimum s'étale ; $\bG = \varepsilon\mathbf{I}$
@@ -230,11 +193,9 @@ Elle exige aussi deux hypothèses, \emph{toutes deux nécessaires} :
   propre de tête (cher) force la dilution et un grand support (moyenne $|S| \approx 146$ sur $800$ dans
   le balayage d'alignement).
 \end{itemize}
-Les deux contre-exemples sont établis : aucune hypothèse n'est superflue. Sous (A1)+(A2) --- le régime
-des vraies matrices génomiques, où $|S| \approx 15$--$30$ --- on conjecture $|S|$ petit et indépendant
-de $n$, de l'ordre des directions propres dominantes que $\bb$ excite réellement ; la moitié croissante
-($|S|$ augmentant quand $k \to 0$) suit la filiation
-contributions\,$\leftrightarrow\,\Delta F\,\leftrightarrow\,N_e$ (Wray \& Thompson 1990 ;
+Le contre-exemple du ridge pur et le balayage d'alignement motivent (A1) et (A2), sans prouver la nécessité de ces conditions informelles. Sous des versions quantitatives à point de fonctionnement spécifié, on conjecture un petit support ; les 15--30 historiques concernent les caps lâches, pas tout panel réel ; la moitié croissante
+($|S|$ augmentant quand $k$ approche le minimum réalisable) suit la filiation
+proxy de contributions $\Delta F=1/(2N_e)$, distinct de la consanguinité génomique réalisée (Wray \& Thompson 1990 ;
 Woolliams \& Bijma 2000). La prouver --- coupler le gap spectral à la projection de $\bb$ sur le
 sous-espace dominant, en résistant à la courbure de la queue --- est le problème ouvert, point de
 rencontre de l'optimisation (la face du cône perturbé) et de la génétique quantitative (lignées
@@ -242,21 +203,22 @@ effectives).
 
 \textbf{Une prise exacte sur le support effectif.} Écrivons le nombre \emph{effectif} de contributeurs
 comme le ratio de participation $\mathrm{PR}(\bc^\star) = 1/\lVert\bc^\star\rVert^2$ (égal à $|S|$ pour
-des contributions uniformes, moindre si inégales). Au cap actif avec $\bone\tp\bc^\star = 1$, une
+des contributions uniformes, moindre si inégales). Au cap actif positif $k>0$ avec $\bone\tp\bc^\star = 1$, une
 identité tient : $\mathrm{PR}(\bc^\star) = R(\bc^\star)/k$, où
 $R(\bc^\star) = \bc^{\star\top}\bG\bc^\star / \bc^{\star\top}\bc^\star$ est le quotient de Rayleigh
 propre de l'optimum (car $R\lVert\bc^\star\rVert^2 = \bc^{\star\top}\bG\bc^\star = k$). Donc
-$\mathrm{PR}(\bc^\star) \le \lambda_1/k$ sans condition, et la borne conditionnelle \emph{se réduit à
-borner} $R(\bc^\star)$ --- le coût directionnel de coancestrie que l'optimum est forcé d'encaisser.
-C'est là qu'agit (A2) : quand $\bb$ évite les directions dominantes, $\bc^\star$ vit dans la partie bon
-marché du spectre et $R(\bc^\star)$ est petit (mesuré : $R \approx 0{,}02$--$0{,}4$ sur les cas
+$\mathrm{PR}(\bc^\star) \le \lambda_1/k$ sous ces conditions de cap actif positif, et une borne du support \emph{effectif} se réduit à borner $R(\bc^\star)$ --- le coût directionnel de coancestrie que l'optimum est forcé d'encaisser.
+Dans les cas mesurés où $\bb$ évite les directions dominantes, $R(\bc^\star)$ est petit (observé : $R \approx 0{,}02$--$0{,}4$ sur les cas
 structurés contre $\lambda_1 \approx 45$--$143$, donnant $\mathrm{PR} \approx 2$--$12$), tandis que
-$\bG = \varepsilon\mathbf{I}$ force $R = \varepsilon = \lambda_1$ et $\mathrm{PR} = n$. La pièce ouverte
-résiduelle est désormais nette et scalaire --- borner $R(\bc^\star)$ a priori sous (A1)+(A2). (La
-cardinalité brute $|S|$ vaut $\approx 1{,}5$--$2{,}5\times \mathrm{PR}$ ici ; $\mathrm{PR}$ est la
-quantité à loi propre.) Vérifié dans \texttt{bound\_kernel.py}.
+$\bG = \varepsilon\mathbf{I}$ force $R = \varepsilon = \lambda_1$. Au cap actif,
+$\mathrm{PR}=\varepsilon/k$ appartient à $(n-1,n)$ dans tout l'intervalle de support plein
+$\varepsilon/n<k<\varepsilon/(n-1)$, et tend vers $n$ lorsque $k$ décroît vers $\varepsilon/n$.
+Le support total vaut déjà $n$ dans tout cet intervalle ; $\mathrm{PR}=n$ exige des contributions uniformes.
+Par exemple, $n=3$ et $k=5\varepsilon/12$ donnent $|S|=3$ mais $\mathrm{PR}=12/5$.
+La pièce ouverte
+résiduelle est désormais nette et scalaire --- borner $R(\bc^\star)$ a priori sous (A1)+(A2). (La cardinalité brute valait historiquement $\approx1{,}5$--$2{,}5\times\mathrm{PR}$ dans ces cas. En général $\mathrm{PR}\le|S|$ : borner PR supérieurement ne borne pas $|S|$ sans hypothèse supplémentaire sur les contributions.) Vérifié dans \texttt{bound\_kernel.py}.
 
-\textbf{Attaquer ce résidu.} La relaxation sans contrainte (on lâche $\bc \ge 0$) a une forme fermée,
+\textbf{Attaquer ce résidu.} Pour $\bG$ définie positive, la relaxation simplex sans bornes inférieures ni supérieures a, dans le cas à parenté active avec $\lambda>0$, l'expression du quotient de Rayleigh
 $R_{\mathrm{relax}} = (\beta\tp\bG^{-1}\beta)/(\beta\tp\bG^{-2}\beta)$ avec $\beta = \bb - \mu\bone$ ---
 une moyenne des $\lambda$ pondérée par $\beta_i^2/\lambda_i^2$, donc petite sous (A2). Mais elle ne
 prédit $R(\bc^\star)$ que lorsque $\bc \ge 0$ est quasi-inactif : sur les panels réels l'optimum sans
@@ -269,8 +231,8 @@ désormais tous deux identifiés.
 
 \section*{Évidence numérique (reproductible)}
 
-\texttt{bound\_validation.py} (la borne $\varepsilon=0$, la n-indépendance, les balayages ridge et
-décroissance spectrale, et le contre-exemple du Théorème~\ref{thm:noridge}) ;
+\texttt{bound\_validation.py} (observations de bas rang avec ridge, pas un test du théorème de sommet à $\varepsilon=0$, le balayage empirique en $n$, les balayages ridge et
+décroissance spectrale, et le balayage historique du Théorème~\ref{thm:noridge} et témoins analytiques du bloc 8) ;
 \texttt{bound\_real.py} (blé et souris, après \texttt{research/repro/*\_export.R}) ;
 \texttt{bound\_balign.py} (le balayage d'alignement de $\bb$) ; \texttt{bound\_predictor.py} et
 \texttt{bound\_lawfit.py} (la recherche de prédicteur / de loi) ; \texttt{bound\_curve.py} (l'ajustement

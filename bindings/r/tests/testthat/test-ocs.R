@@ -86,6 +86,36 @@ test_that("per-candidate caps are respected", {
   expect_equal(sum(res$c), 1, tolerance = 1e-9)
 })
 
+test_that("sexed individual caps match an analytic optimum", {
+  # Zero centred columns and ridge=1 give G=I. The two high-value candidates
+  # saturate their different caps. Residual sex budgets .3 and .25 have paired
+  # weights (.15 +/- d_m) and (.125 +/- d_f), giving
+  # q = .17875 + 2*(d_m^2+d_f^2) and variable gain 2*d_m+d_f.
+  # Cauchy-Schwarz gives d_m=2*sqrt(.001), d_f=sqrt(.001) for k=.18875.
+  # Positive upper-bound multipliers justify the first two saturated caps.
+  z <- matrix(0, 6, 2)
+  b <- c(10, 9, 2, 1, 0, 0)
+  male <- c(TRUE, FALSE, TRUE, FALSE, TRUE, FALSE)
+  caps <- c(0.2, 0.25, 0.4, 0.4, 0.4, 0.4)
+  k <- 0.18875
+  delta <- sqrt(0.001)
+  expected <- c(0.2, 0.25, 0.15 + 2 * delta, 0.125 + delta,
+                0.15 - 2 * delta, 0.125 - delta)
+
+  res <- ocs_solve(z, b, k = k, s = 1, ridge = 1, male = male, caps = caps)
+
+  expect_equal(res$status, "Solved")
+  expect_true(all(res$c >= -1e-10))
+  expect_true(all(res$c <= caps + 1e-10))
+  expect_equal(sum(res$c[male]), 0.5, tolerance = 1e-10)
+  expect_equal(sum(res$c[!male]), 0.5, tolerance = 1e-10)
+  expect_lte(sum(res$c^2), k + 1e-10)
+  expect_equal(res$c, expected, tolerance = 1e-8)
+  expect_equal(res$gain, sum(b * expected), tolerance = 1e-8)
+  expect_equal(res$quad, sum(res$c^2), tolerance = 1e-10)
+  expect_equal(sort(res$support), which(res$c > 1e-12))
+})
+
 test_that("a tighter cap never yields a higher gain", {
   panel <- make_panel(seed = 13)
   g <- dense_g(panel)

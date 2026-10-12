@@ -539,9 +539,7 @@ fn verdict_narrative(
                     inp.mem_gb
                 ));
             }
-            if let Some(p) = growth
-                && p > 3.5
-            {
+            if let Some(p) = growth.filter(|p| *p > 3.5) {
                 reasons.push(format!("super-linear solve growth (~n^{p:.2})"));
             }
             let largest_ok = route_a

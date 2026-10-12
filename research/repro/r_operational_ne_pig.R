@@ -4,19 +4,22 @@
 # marker count — the worst case for the matrix-free path, which re-derives kinship
 # from Z (O(n m) per iteration) while optiSel reuses a G formed once.
 #
-# Ne_c = 1/sum(c^2); ΔF ≈ 1/(2 Ne_c). Conventions as elsewhere: optiSel bounds
+# Ne_c = 1/sum(c^2); ΔF_proxy = 1/(2 Ne_c), not realized genomic inbreeding. Conventions as elsewhere: optiSel bounds
 # c' sKin c <= ub on sKin = G/2 + 1e-5 I, so ocs_solve uses k = 2*ub, ridge = 2e-5.
 #
 # Needs /tmp/pig/FileS1/{genotypes,ebvs,pedigree}.txt.
 # Usage: Rscript research/repro/r_operational_ne_pig.R
 
+source("research/repro/repro_common.R")
+source("research/repro/export_K_panels.R")
+unlink(file.path(repro_out, "operational_ne_pig.csv"))
 suppressMessages({
   library(data.table)
   library(optiSel)
   library(ocsrs)
 })
 
-dir <- "/tmp/pig/FileS1"
+dir <- Sys.getenv("PIG_DATA_DIR", "/tmp/pig/FileS1")
 ped <- fread(file.path(dir, "pedigree.txt"), colClasses = "character")
 sires <- unique(ped$SIRE[ped$SIRE != "0"])
 dams <- unique(ped$DAM[ped$DAM != "0"])
@@ -54,6 +57,7 @@ phen <- data.frame(
 )
 cand <- candes(phen = phen, sKin = sKin, quiet = TRUE)
 
+hashes <- export_panel("pig", sKin, bv, sx, ncol(z))
 n <- length(ids)
 ne_of <- function(c) 1 / sum(c^2)
 iM <- which(sx == "male")[which.max(bv[sx == "male"])]
@@ -75,11 +79,12 @@ for (t_ne in c(25, 50, 100)) {
   for (it in 1:35) {
     ub <- 0.5 * (lo + hi)
     chosen <- ub
-    res <- ocs_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = sx == "male")
+    res <- checked_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = sx == "male")
     ne <- ne_of(res$c)
     if (ne > t_ne) lo <- ub else hi <- ub
     if (abs(ne - t_ne) / t_ne < 0.015) break
   }
+  require_target(ne, t_ne)
   ub <- chosen
   # Capture results, then time separately (assignments inside replicate() would not
   # escape its evaluation frame).
@@ -88,9 +93,9 @@ for (t_ne in c(25, 50, 100)) {
   t_os <- median(replicate(3, system.time(
     opticont("max.BV", cand, list(ub.sKin = ub), trace = FALSE, quiet = TRUE)
   )[["elapsed"]]))
-  res <- ocs_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = sx == "male")
+  res <- checked_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = sx == "male")
   t_rs <- median(replicate(3, system.time(
-    ocs_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = sx == "male")
+    checked_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = sx == "male")
   )[["elapsed"]]))
   ne <- ne_of(res$c)
   gap <- sum(bv * res$c) - sum(bv * oc)
@@ -98,17 +103,17 @@ for (t_ne in c(25, 50, 100)) {
   kin_os <- as.numeric(t(oc) %*% sKin %*% oc)
   su <- t_os / max(t_rs, 1e-4)
   cat(sprintf(
-    "Ne=%3.0f dF=%.2f%% | |S|=%3d (optiSel %3d, using %.0f%% of ub) | optiSel %6.3fs  ocsrs %6.3fs  speedup %5.2fx | gaingap %+.2e\n",
+    "Ne_c=%3.0f proxy_dF=%.2f%% | |S|=%3d (optiSel %3d, using %.0f%% of ub) | optiSel %6.3fs  ocsrs %6.3fs  speedup %5.2fx | gaingap %+.2e\n",
     ne, 50 / ne, length(res$support), sum(oc > 1e-6), 100 * kin_os / ub, t_os, t_rs, su, gap
   ))
   rows[[length(rows) + 1]] <- data.frame(
-    panel = "pig (real EBV+sex)", n = n, m = ncol(z), target_ne = t_ne, achieved_ne = ne,
-    delta_f_pct = 50 / ne, ub = ub, support_ocsrs = length(res$support),
+    panel = "pig", K_md5 = hashes[["K_md5"]], bc_md5 = hashes[["bc_md5"]],
+    gain_ocsrs = sum(bv * res$c), status = res$status, n = n, m = ncol(z), target_ne = t_ne, achieved_ne = ne,
+    proxy_delta_f_pct = 50 / ne, ub = ub, support_ocsrs = length(res$support),
     support_optisel = sum(oc > 1e-6), optisel_pct_of_ub = 100 * kin_os / ub,
     optisel_s = t_os, ocsrs_s = t_rs, speedup = su, gain_gap = gap
   )
 }
 out <- do.call(rbind, rows)
-dir.create("artifacts", showWarnings = FALSE)
-write.csv(out, "artifacts/operational_ne_pig.csv", row.names = FALSE)
-cat("\n[operational_ne_pig] wrote artifacts/operational_ne_pig.csv\n")
+write.csv(out, file.path(repro_out, "operational_ne_pig.csv"), row.names = FALSE)
+cat("\n[operational_ne_pig] wrote ", file.path(repro_out, "operational_ne_pig.csv"), "\n", sep = "")

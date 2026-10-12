@@ -14,8 +14,8 @@
 //! a `Vec` copies R's buffer into a Rust allocation, and on a 52k-marker panel that
 //! copy — on top of the `as.numeric` flatten on the R side and the build into faer —
 //! made three passes over 1.5 GB dominate the call. `as_real_slice` borrows R's own
-//! column-major buffer, so the only remaining copy is the single gather into faer's
-//! matrix (also column-major, so it is a straight copy, no transpose).
+//! column-major buffer as a faer matrix view: an already-double R matrix is borrowed
+//! for the solve, with no genotype-buffer copy or transpose.
 
 use extendr_api::prelude::*;
 // `Result` is not in extendr's prelude, so the glob above leaves std's in scope; this
@@ -79,6 +79,7 @@ fn to_list(o: SupportFirstOutcome) -> List {
 }
 
 /// Simplex OCS: maximise bᵀc s.t. sum(c) = 1, c >= 0, cᵀGc <= k.
+/// @noRd
 #[extendr]
 #[allow(clippy::too_many_arguments)]
 fn sf_solve(
@@ -107,6 +108,7 @@ fn sf_solve(
 }
 
 /// Sexed OCS: the same with sum over males = sum over females = 1/2.
+/// @noRd
 #[extendr]
 #[allow(clippy::too_many_arguments)]
 fn sf_solve_sexed(
@@ -138,6 +140,7 @@ fn sf_solve_sexed(
 }
 
 /// Simplex OCS with per-candidate caps 0 <= c <= u.
+/// @noRd
 #[extendr]
 #[allow(clippy::too_many_arguments)]
 fn sf_solve_capped(
@@ -169,6 +172,7 @@ fn sf_solve_capped(
 }
 
 /// Sexed OCS with per-candidate caps.
+/// @noRd
 #[extendr]
 #[allow(clippy::too_many_arguments)]
 fn sf_solve_sexed_capped(
@@ -203,6 +207,7 @@ fn sf_solve_sexed_capped(
 }
 
 /// Read a PLINK 1 trio into centred genotypes, returned column-major for R.
+/// @noRd
 #[extendr]
 fn sf_read_plink(prefix: &str) -> Result<List> {
     let panel = ocs_rs::plink::read_panel(std::path::Path::new(prefix))

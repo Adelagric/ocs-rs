@@ -1,12 +1,12 @@
-# Multi-generation validation (review point 8, the domain-standard check): recurrent
-# selection over generations, support-first OCS at a fixed operating point (ΔF=1%,
-# Ne=50) against truncation selection. The expected, textbook result: OCS gives up a
-# little gain to hold the rate of coancestry down, truncation runs faster gain into
-# runaway coancestry. Criterion is the true genetic value (isolates the OCS mechanism
-# from GEBV noise). support-first is called through the shipped R binding each
-# generation, so this also exercises the deployed tool end to end.
+# Recurrent-selection experiment: contribution Ne_c=50 OCS versus truncation,
+# using true genetic values. Population summaries record genetic gain and observed
+# heterozygosity; they do not measure realized genomic inbreeding or certify a
+# fixed coancestry rate. Founder checkpoints and one simulation thread enable
+# replay of the same generated population, not deterministic de novo MaCS output.
 #
 # Usage: Rscript research/repro/multigen_validation.R
+source("research/repro/repro_common.R")
+unlink(file.path(repro_out, "multigen_validation.csv"))
 suppressMessages({
   library(AlphaSimR)
   library(ocsrs)
@@ -43,11 +43,12 @@ ocs_cross <- function(pop) {
   res <- NULL
   for (it in 1:25) {
     ub <- 0.5 * (ub_lo + ub_hi)
-    res <- ocs_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = male)
+    res <- checked_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = male)
     ne <- ne_of(res$c)
     if (ne > target_ne) ub_lo <- ub else ub_hi <- ub
     if (abs(ne - target_ne) / target_ne < 0.02) break
   }
+  require_target(ne, target_ne, .02)
   c <- pmax(res$c, 0)
   # Sample n_progeny crosses: dam ∝ c on females, sire ∝ c on males.
   f_idx <- which(!male); m_idx <- which(male)
@@ -81,8 +82,10 @@ summ <- function(pop) {
 rows <- list()
 for (rep in seq_len(n_rep)) {
   set.seed(1000 + rep)
-  founderPop <- runMacs(nInd = 120, nChr = 10, segSites = 1100, species = "GENERIC")
+  founderPop <- repro_founders(paste0("multigen_founders_rep", rep), nInd = 120,
+                               nChr = 10, segSites = 1100, seed = 1000 + rep)
   SP <- SimParam$new(founderPop)
+  SP$nThreads <- repro_sim_threads
   SP$setSexes("yes_rand")
   SP$addTraitA(nQtlPerChr = 100)
   SP$addSnpChip(nSnpPerChr = 100)
@@ -92,7 +95,8 @@ for (rep in seq_len(n_rep)) {
     for (g in 0:n_gen) {
       st <- summ(pop)
       rows[[length(rows) + 1]] <- data.frame(
-        rep = rep, method = method, gen = g, gain = st$gain, het = st$het
+        rep = rep, method = method, gen = g, gain = st$gain, het = st$het,
+        simulation_threads = repro_sim_threads
       )
       if (g < n_gen) {
         pop <- if (method == "ocs") ocs_cross(pop) else trunc_cross(pop)
@@ -104,8 +108,7 @@ for (rep in seq_len(n_rep)) {
 }
 
 out <- do.call(rbind, rows)
-dir.create("artifacts", showWarnings = FALSE)
-write.csv(out, "artifacts/multigen_validation.csv", row.names = FALSE)
+write.csv(out, file.path(repro_out, "multigen_validation.csv"), row.names = FALSE)
 
 # Trajectories averaged over reps.
 agg <- aggregate(cbind(gain, het) ~ method + gen, out, mean)
@@ -116,4 +119,4 @@ for (m in c("ocs", "truncation")) {
   cat(sprintf("%-10s het : %s\n", m,
               paste(sprintf("%.3f", agg$het[agg$method == m]), collapse = " ")))
 }
-cat("\n[multigen] wrote artifacts/multigen_validation.csv\n")
+cat("\n[multigen] wrote ", file.path(repro_out, "multigen_validation.csv"), "\n", sep = "")

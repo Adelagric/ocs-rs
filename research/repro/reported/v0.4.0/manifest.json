@@ -1,0 +1,14 @@
+{
+  "origin_commit": "e6790c99",
+  "classification": "historical reported summaries; not rerun or retroactively verified",
+  "structured_target_ne": 50,
+  "structured_solver_ridge": 1e-05,
+  "structured_optisel_kinship_ridge": 1e-05,
+  "sha256": {
+    "scaling_matrixfree.csv": "83a91b1f35991b29c3b1051ffd947b3ff45ac4d0c23daf3994fff59de5661a75",
+    "scaling_structured.csv": "9ecb974d60f0a73ee8a4a36cc07f69360bda1b07ea98cd292721a7f7b11fee9f",
+    "multigen_validation.csv": "689d7124938c8716fa0997200cb780524f8abb35054eddd6101ed4231058940f",
+    "table2_operational.csv": "8ae86efa89d9ac484b2f82549568af4f0a08034a069a86dc8fc25d520723c922",
+    "operational_ne_realpanels.csv": "c6bc5e99b6147a1b2e2f5a5d09390c1a7404946af913928d0e5d2f73f9873b04"
+  }
+}

@@ -1,0 +1,5 @@
+"key","seed","threads","alpha_version","checkpoint","md5"
+"structured_founders",1,1,"2.1.0","structured_founders.rds","dfccd80ac2751c3d2cb71b58022846cc"
+"multigen_founders_rep1",1001,1,"2.1.0","multigen_founders_rep1.rds","0f4a0cb6f52a94daef02f9ac55a39f91"
+"multigen_founders_rep2",1002,1,"2.1.0","multigen_founders_rep2.rds","d9917ed4424c321a602f1dc2ab84300e"
+"multigen_founders_rep3",1003,1,"2.1.0","multigen_founders_rep3.rds","965ba5ab82474c84fc664cbbae507218"

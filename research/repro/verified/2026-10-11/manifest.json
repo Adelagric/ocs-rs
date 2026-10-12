@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-11",
+  "source_base": "123d9ffd51d5e5ec1f2c211737ce41ab58a639bb",
+  "kind": "fresh corrected-source verification; historical figures unchanged",
+  "sha256": {
+    "README.md": "e51ff1f483485df029a07e40684a80400b4fc4bd2104792a13191836437e66c5",
+    "multigen_validation.csv": "4f76b798d479d86d18c2273cbea4d74a5730ef1b09b4b5c06293aa9e8ca9dd58",
+    "scaling_structured.csv": "fe02b630b4dfcdc262c9d48d5659d9aa52a383d95d9f3cf6e33b8758aafdfcc9",
+    "simulation_state/multigen_founders_rep1.rds": "df0d6324b70b00256700c556c6fe90bb6f494ee000db6f5a0a1e4647c132bd1c",
+    "simulation_state/multigen_founders_rep2.rds": "9236169f5499c139a7c8b625d016af05aa2976e32952b9678e94394fe3432826",
+    "simulation_state/multigen_founders_rep3.rds": "1ef738a73d5679af4e6eb4f2620302c5d2304bee887a0ee1fac165d9336d7f5c",
+    "simulation_state/structured_founders.rds": "7b164a41b5de11787b229e9426033db083dfd85b65370f6a608a5320d0eabcab",
+    "simulation_state_manifest.csv": "b5e254bf83a4909dc9f268e9eb5595ad0bab592d36fb5f066b7e1ade0d51f302",
+    "status.tsv": "a8360b1099f0434564339bd70157a57e98f3ef87038a7234c8fcc3b8ca6e8a0a"
+  }
+}

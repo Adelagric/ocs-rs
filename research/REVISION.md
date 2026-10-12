@@ -1,4 +1,15 @@
-# Revision roadmap — response to the severe review
+# Historical revision experiments and review notes
+
+> This file records exploratory experiments preceding the v0.4.0 manuscript.
+> Its provisional verdicts and superseded comparisons are not current claims.
+> The 2026-10-10 correction qualifies support bounds for individual caps, labels
+> contribution-based Ne/Delta-F proxies, separates historical timings from fresh
+> runs, and aligns the structured optiSel ridge. In particular, 11.9 GiB is a
+> calculated dense-array footprint; the experiment omitted construction above
+> 30000 candidates by policy and did not demonstrate a memory allocation failure.
+> Current results and their scope are in MANUSCRIPT.tex and repro/REPRODUCE.md.
+> Historical operational NumPy/R timings were calibrated separately to target Ne;
+> the corrected pipeline exports one cap for both paths before comparison.
 
 Truth-first. Claims are scoped strictly to what is demonstrated; headline numbers
 are re-established at breeder-defensible operating points **before** any manuscript
@@ -69,8 +80,8 @@ autogamous panel with an artificial sex split.)
 artifact**. At operational ΔF on modest real panels support-first is a few × faster (Ne=50) and at
 **parity or slower** at the tightest defensible point (Ne=100). The durable contribution is **not
 speed on small panels**; it is (a) **exactness** (KKT-optimal; optiSel halts inside the constraint
-on wheat) and (b) **memory at scale** — at n=40000 the dense G is 11.9 GiB (unbuildable), which
-optiSel cannot run **at all**, while matrix-free solves in <1 s. The thesis must move from "orders
+on wheat) and (b) **memory at scale** — at n=40000 the dense G is 11.9 GiB (calculated footprint; build omitted by policy), which
+an optiSel run at that size was not measured, while matrix-free solves in <1 s. The thesis must move from "orders
 of magnitude faster" to "exact, and enables population-scale OCS the dense-G tools cannot open."
 The real-panel speed claim is now: 6× at Ne=50, parity at Ne=100 (mouse), reported honestly.
 
@@ -88,7 +99,7 @@ The real-panel speed claim is now: 6× at Ne=50, parity at Ne=100 (mouse), repor
 | 40000 | 88 | 0.646 | 11.92 GiB | — |
 
 - **Enablement holds on realistic structured data**: matrix-free solves n=40000 in 0.65 s at
-  ΔF=1 % while the dense G is 11.9 GiB (unbuildable). This is the durable contribution, now shown
+  ΔF=1 % while the dense G is 11.9 GiB (calculated footprint; build omitted by policy). This is the durable contribution, now shown
   on AlphaSimR data, not just the HWE toy.
 - **\|S\| stays bounded (~80–103) at fixed Ne as n grows** → reframe "bounded support" as **bounded
   at a fixed operating point**, honest and demonstrated — not "intrinsically bounded", which the
@@ -129,8 +140,7 @@ governed by the marker count m (its per-iteration cost is O(nm)):
 | **pig (flagship)** | **52843** | **0.3× (slower)** |
 
 So "orders of magnitude faster on real panels" is **false at operational ΔF on the flagship**. The
-matrix-free path wins at low-to-moderate m and, decisively, at **large n where G cannot be formed at
-all** (n=40000 → 11.9 GiB); it loses at small-n/high-m/tight-cap, where forming G once and reusing
+matrix-free path wins at low-to-moderate m and, decisively, at **large n where storing G becomes costly** (n=40000 → 11.9 GiB); it loses at small-n/high-m/tight-cap, where forming G once and reusing
 it (given-G) is better. This is a real, clean characterization — *when* matrix-free wins — and it is
 a stronger scientific contribution than a raw speed claim.
 
@@ -152,8 +162,7 @@ K precomputed; the algorithmic column, m-independent because pricing is K·c = O
 
 **Given G, the active-set is 12–173× faster than the IPM at operational ΔF even at m=52843** — while
 the matrix-free path at the same points was *slower* than optiSel (10 s at Ne=50). The ~128× gap is
-entirely the matrix-free O(nm) reconstruction penalty, **not** the algorithm. (Prototype in NumPy, so
-the absolute times are an upper bound; a Rust given-G path would be faster — but the algorithmic win is
+entirely the matrix-free O(nm) reconstruction penalty, **not** the algorithm. (Prototype in NumPy; a Rust given-G implementation has not been benchmarked — but the algorithmic win is
 unambiguous from the iteration counts × O(n²) vs the IPM's O(n³).)
 
 **The honest two-part thesis (now established):**

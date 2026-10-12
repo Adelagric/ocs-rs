@@ -1,21 +1,23 @@
 # Operational-point re-benchmark: support-first vs optiSel on REAL panels, at a
-# breeder-defensible operating point (target effective size Ne / rate of inbreeding
-# ΔF), not at the loose cap that produced the headline. Answers review point 1 on
-# real data.
+# contribution-based operating point (target Ne_c=1/sum(c^2)), not the loose
+# historical cap. The implied ΔF proxy is not observed genomic inbreeding.
 #
 #   Ne_c = 1 / sum(c^2)   (effective number of contributing parents)
-#   ΔF   ≈ 1 / (2 Ne_c)
+#   ΔF_proxy = 1 / (2 Ne_c), not realized genomic inbreeding
 #
 # Conventions identical to r_binding_real_panels.R: optiSel constrains c' sKin c <= ub
-# with sKin = G/2 + 1e-5 I, so ocs_solve() solves the identical problem with
+# with sKin = G/2 + 1e-5 I, so checked_solve() solves the identical problem with
 # k = 2*ub on G + 2e-5 I. The cap ub is tuned (bisection on the solution's Ne) to
 # each target, then both solvers are timed at that operating point.
 #
-# Reported: R BLAS is OpenBLAS (multithreaded), so the optiSel baseline is NOT on a
-# slow reference BLAS — the speed-up is conservative w.r.t. BLAS choice.
+# Original source notes report OpenBLAS. The run provenance records the current
+# session BLAS; no speed-up claim is inferred from the library name.
 #
 # Usage: Rscript research/repro/r_operational_ne.R [wheat|mouse|both]
 
+source("research/repro/repro_common.R")
+source("research/repro/export_K_panels.R")
+unlink(file.path(repro_out, "operational_ne_realpanels.csv"))
 suppressMessages({
   library(BGLR)
   library(optiSel)
@@ -35,6 +37,7 @@ rows <- list()
 
 bench_panel <- function(label, z, bv, sx, s, sKin) {
   n <- length(bv)
+  hashes <- export_panel(label, sKin, bv, sx, ncol(z))
   ids <- rownames(sKin)
   phen <- data.frame(
     Indiv = ids, Born = 1L, Breed = "X", BV = bv, Sex = sx,
@@ -67,11 +70,12 @@ bench_panel <- function(label, z, bv, sx, s, sKin) {
     for (it in 1:40) {
       ub <- 0.5 * (lo + hi)
       chosen <- ub
-      res <- ocs_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = sx == "male")
+      res <- checked_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = sx == "male")
       ne <- ne_of(res$c)
       if (ne > t_ne) lo <- ub else hi <- ub # Ne decreases as ub loosens
       if (abs(ne - t_ne) / t_ne < 0.01) break
     }
+    require_target(ne, t_ne)
     ub <- chosen
 
     # Timed head-to-head at the operational cap.
@@ -80,7 +84,7 @@ bench_panel <- function(label, z, bv, sx, s, sKin) {
     )
     oc <- fit$parent$oc
     t_rs <- system.time(
-      res <- ocs_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = sx == "male")
+      res <- checked_solve(z, bv, k = 2 * ub, s = s, ridge = 2e-5, male = sx == "male")
     )
 
     ne <- ne_of(res$c)
@@ -91,13 +95,14 @@ bench_panel <- function(label, z, bv, sx, s, sKin) {
     gap <- sum(bv * res$c) - sum(bv * oc)
 
     cat(sprintf(
-      "  Ne=%3.0f dF=%.2f%% | |S|=%3d (optiSel %3d) | optiSel %6.3fs  ocsrs %6.3fs  speedup %5.0fx | gaingap %+.2e  coan=%.5f\n",
+      "  Ne_c=%3.0f proxy_dF=%.2f%% | |S|=%3d (optiSel %3d) | optiSel %6.3fs  ocsrs %6.3fs  speedup %5.0fx | gaingap %+.2e  coan=%.5f\n",
       ne, df, length(res$support), sum(oc > 1e-6),
       t_os[["elapsed"]], t_rs[["elapsed"]], su, gap, kin_rs
     ))
 
     rows[[length(rows) + 1]] <<- data.frame(
-      panel = label, target_ne = t_ne, achieved_ne = ne, delta_f_pct = df,
+      panel = label, n = n, m = ncol(z), K_md5 = hashes[["K_md5"]],
+      bc_md5 = hashes[["bc_md5"]], gain_ocsrs = sum(bv * res$c), status = res$status, target_ne = t_ne, achieved_ne = ne, proxy_delta_f_pct = df,
       ub = ub, support_ocsrs = length(res$support), support_optisel = sum(oc > 1e-6),
       optisel_s = t_os[["elapsed"]], ocsrs_s = t_rs[["elapsed"]], speedup = su,
       gain_gap = gap, coancestry = kin_rs, stringsAsFactors = FALSE
@@ -119,7 +124,7 @@ if (which_panel %in% c("wheat", "both")) {
   bv <- wheat.Y[, 1]
   set.seed(1)
   sx <- rep(c("male", "female"), length.out = n)
-  bench_panel("wheat (CIMMYT)", z, bv, sx, s, sKin)
+  bench_panel("wheat", z, bv, sx, s, sKin)
 }
 
 if (which_panel %in% c("mouse", "both")) {
@@ -141,10 +146,9 @@ if (which_panel %in% c("mouse", "both")) {
   sKin <- g / 2
   diag(sKin) <- diag(sKin) + 1e-5
   rownames(sKin) <- colnames(sKin) <- ids
-  bench_panel("HS mouse (real sex)", z, bv, sx, s, sKin)
+  bench_panel("mouse", z, bv, sx, s, sKin)
 }
 
 out <- do.call(rbind, rows)
-dir.create("artifacts", showWarnings = FALSE)
-write.csv(out, "artifacts/operational_ne_realpanels.csv", row.names = FALSE)
-cat("\n[operational_ne] wrote artifacts/operational_ne_realpanels.csv\n")
+write.csv(out, file.path(repro_out, "operational_ne_realpanels.csv"), row.names = FALSE)
+cat("\n[operational_ne] wrote ", file.path(repro_out, "operational_ne_realpanels.csv"), "\n", sep = "")

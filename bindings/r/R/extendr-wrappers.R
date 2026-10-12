@@ -6,18 +6,23 @@
 NULL
 
 #' Simplex OCS: maximise bᵀc s.t. sum(c) = 1, c >= 0, cᵀGc <= k.
+#' @noRd
 sf_solve <- function(z, n, m, s, ridge, b, k, max_iter, tol) .Call(wrap__sf_solve, z, n, m, s, ridge, b, k, max_iter, tol)
 
 #' Sexed OCS: the same with sum over males = sum over females = 1/2.
+#' @noRd
 sf_solve_sexed <- function(z, n, m, s, ridge, b, male, k, max_iter, tol) .Call(wrap__sf_solve_sexed, z, n, m, s, ridge, b, male, k, max_iter, tol)
 
 #' Simplex OCS with per-candidate caps 0 <= c <= u.
+#' @noRd
 sf_solve_capped <- function(z, n, m, s, ridge, b, caps, k, max_iter, tol) .Call(wrap__sf_solve_capped, z, n, m, s, ridge, b, caps, k, max_iter, tol)
 
 #' Sexed OCS with per-candidate caps.
+#' @noRd
 sf_solve_sexed_capped <- function(z, n, m, s, ridge, b, male, caps, k, max_iter, tol) .Call(wrap__sf_solve_sexed_capped, z, n, m, s, ridge, b, male, caps, k, max_iter, tol)
 
 #' Read a PLINK 1 trio into centred genotypes, returned column-major for R.
+#' @noRd
 sf_read_plink <- function(prefix) .Call(wrap__sf_read_plink, prefix)
 
 # nolint end

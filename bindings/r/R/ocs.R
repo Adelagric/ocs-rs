@@ -1,38 +1,50 @@
 #' Exact, matrix-free optimum contribution selection
 #'
-#' Maximises genetic gain `t(b) %*% c` subject to a cap on the mean coancestry of
-#' the next generation, `t(c) %*% G %*% c <= k`, with non-negative contributions
+#' Maximises genetic gain `t(b) %*% c` subject to a quadratic relationship bound
+#' `t(c) %*% G %*% c <= k`, with non-negative contributions
 #' summing to one — or, when `male` is given, to one half per sex.
 #'
 #' The relationship matrix `G = Z Z' / s + ridge * I` is never formed: kinship
-#' products come straight from `Z`, and only the handful of candidates in the
-#' optimal support enter the linear algebra. The result is the exact optimum for
-#' continuous contributions under a single coancestry constraint (KKT-certified),
-#' not a heuristic.
+#' products come straight from `Z`, and the restricted linear algebra uses the
+#' active/free support. Small support is empirical; individual caps can require
+#' larger supports. With this additive relationship convention, group coancestry
+#' is `quad / 2` using `K = G / 2`, and its bound is `k / 2`. This score does not
+#' specify realised offspring inbreeding without a mating allocation and reference
+#' population. The solver targets the optimum for
+#' continuous contributions under a single coancestry constraint, subject to its
+#' numerical termination tolerances.
+#'
+#' The first argument is `Z`, not a relationship matrix. Passing `G` instead
+#' would use `G G' / s + ridge * I`. Arbitrary or modified relationship matrices
+#' need an adapter/factorization reproducing the intended operator; this function
+#' has no general `G` argument. An already-double R matrix is borrowed during the
+#' solve; an integer matrix is first converted to double. Packed 2-bit solving is
+#' currently available only through Rust's `read_packed` and `solve_sexed_packed`.
 #'
 #' @param Z Numeric matrix of centred genotypes, `n` candidates by `m` markers
 #'   (dosages minus twice the allele frequency). [read_plink()] returns one.
-#' @param b Numeric vector of length `n`: the breeding values to maximise.
-#' @param k Coancestry cap; the constraint is `t(c) %*% G %*% c <= k`.
+#' @param b Numeric vector of length `n`: the breeding values to maximise, in
+#'   exactly the row order of `Z`.
+#' @param k Quadratic relationship bound: `t(c) %*% G %*% c <= k`.
+#'   A group-coancestry bound `ub` with `K = G / 2` corresponds to `k = 2 * ub`.
 #' @param s VanRaden scale `2 * sum(p * (1 - p))` — see [vanraden_scale()].
-#' @param ridge Small ridge making `G` positive definite (default `1e-5`).
+#' @param ridge Small positive ridge making `G` positive definite (default `1e-5`).
+#'   Its contribution `ridge * sum(c^2)` is included in the quadratic relationship cap.
 #' @param male Optional logical vector of length `n`. When supplied the sexed
-#'   problem is solved, each sex contributing one half.
+#'   problem is solved, each sex contributing one half. It must be in exactly the
+#'   row order of `Z`; [read_plink()] does not return `.fam` sex metadata.
 #' @param caps Optional numeric vector of length `n` of per-candidate upper
-#'   bounds `c <= caps`.
+#'   bounds `c <= caps`, in exactly the row order of `Z`.
 #' @param max_iter,tol Active-set iteration cap and reduced-cost tolerance.
 #'
 #' @return An object of class `ocs_result`: a list with the contributions `c`,
 #'   the active `support` (1-based indices), the `gain` `t(b) %*% c`, the realised
-#'   coancestry `quad`, counts `iterations` and `products`, and `status`
-#'   (`"Solved"` or `"MaxIter"`). Only a `"Solved"` result is an optimum.
+#'   relationship score `quad = t(c) %*% G %*% c`, counts `iterations` and
+#'   `products`, and `status`
+#'   (`"Solved"` or `"MaxIter"`). Check for `"Solved"` before using the result as
+#'   an optimum; `"MaxIter"` has no such guarantee.
 #'
-#' @examples
-#' \dontrun{
-#' panel <- read_plink("cattle")
-#' res <- ocs_solve(panel$Z, b = ebv, k = 0.03, s = panel$s)
-#' res$support
-#' }
+#' @example examples/quickstart.R
 #' @export
 ocs_solve <- function(Z, b, k, s, ridge = 1e-5, male = NULL, caps = NULL,
                       max_iter = 10000L, tol = 1e-9) {
@@ -46,7 +58,7 @@ ocs_solve <- function(Z, b, k, s, ridge = 1e-5, male = NULL, caps = NULL,
     stop(sprintf("`b` has length %d, expected nrow(Z) = %d.", length(b), n))
   }
   if (!is.numeric(k) || length(k) != 1L || !is.finite(k)) {
-    stop("`k` must be a single finite number (the coancestry cap).")
+    stop("`k` must be a single finite number (the quadratic relationship cap).")
   }
   if (!is.numeric(s) || length(s) != 1L || !is.finite(s) || s <= 0) {
     stop("`s` must be a single positive number; see `vanraden_scale()`.")
@@ -96,7 +108,7 @@ ocs_solve <- function(Z, b, k, s, ridge = 1e-5, male = NULL, caps = NULL,
 #' @export
 print.ocs_result <- function(x, ...) {
   cat(sprintf(
-    "<ocs_result> status=%s  |support|=%d  gain=%.6g  coancestry=%.6g  (%d iterations, %d products)\n",
+    "<ocs_result> status=%s  |support|=%d  gain=%.6g  quad=%.6g  (%d iterations, %d products)\n",
     x$status, length(x$support), x$gain, x$quad, x$iterations, x$products
   ))
   invisible(x)
@@ -120,13 +132,20 @@ vanraden_scale <- function(p) {
 #' to the marker mean. Only SNP-major `.bed` files are read (PLINK >= 1.9 writes
 #' those by default).
 #'
+#' The returned IDs contain only the `.fam` IID column, in file order; FID and
+#' sex are not returned. Keep this metadata separately and align breeding values,
+#' sex masks and individual caps to `panel$ids` before solving. Check uniqueness
+#' before matching by IID. File dimension checks do not verify identity or order
+#' agreement among the three files; use a trio produced together.
+#'
 #' @param prefix Path without extension, e.g. `"data/cattle"`.
 #' @return An object of class `ocs_panel`: a list with the centred matrix `Z`,
-#'   the allele frequencies `p`, the VanRaden scale `s`, and the individual `ids`.
+#'   the allele frequencies `p`, the VanRaden scale `s`, and the individual IIDs
+#'   `ids` in `.fam` row order. This reader materialises a dense matrix.
 #' @examples
 #' \dontrun{
 #' panel <- read_plink("cattle")
-#' res <- ocs_solve(panel$Z, b = ebv, k = 0.03, s = panel$s)
+#' panel$ids # Align external breeding values, sex masks and caps to these IIDs.
 #' }
 #' @export
 read_plink <- function(prefix) {
